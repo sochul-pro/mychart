@@ -1,0 +1,90 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 사용자
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  password      String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  watchlistGroups WatchlistGroup[]
+  signalPresets   SignalPreset[]
+  chartSettings   ChartSettings?
+}
+
+// 관심종목 그룹
+model WatchlistGroup {
+  id        String   @id @default(cuid())
+  name      String
+  order     Int      @default(0)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items     WatchlistItem[]
+
+  @@index([userId])
+}
+
+// 관심종목 항목
+model WatchlistItem {
+  id          String   @id @default(cuid())
+  symbol      String   // 종목코드 (예: 005930)
+  name        String   // 종목명 (예: 삼성전자)
+  order       Int      @default(0)
+  memo        String?  // 메모
+  targetPrice Float?   // 목표가
+  buyPrice    Float?   // 매수가
+  groupId     String
+  group       WatchlistGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([groupId])
+  @@index([symbol])
+}
+
+// 종목 정보 (캐시)
+model Stock {
+  symbol      String   @id // 종목코드
+  name        String   // 종목명
+  market      String   // KOSPI, KOSDAQ
+  sector      String?  // 섹터
+  updatedAt   DateTime @updatedAt
+}
+
+// 매매 신호 프리셋
+model SignalPreset {
+  id        String   @id @default(cuid())
+  name      String
+  buyRules  Json     // 매수 조건 JSON
+  sellRules Json     // 매도 조건 JSON
+  isDefault Boolean  @default(false)
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+// 차트 설정
+model ChartSettings {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  defaultInterval String   @default("D") // D, W, M
+  indicators      Json     // 활성화된 지표 목록
+  theme           String   @default("dark")
+  updatedAt       DateTime @updatedAt
+}
