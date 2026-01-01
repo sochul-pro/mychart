@@ -51,31 +51,36 @@
 
 ---
 
-## Phase 1: 외부 데이터 연동
+## Phase 1: 데이터 레이어 (Mock 기반)
 
-### TASK-004: 주식 시세 API 연동
-**설명**: 증권사 OpenAPI 연동하여 시세 데이터 수집
+### TASK-004: 주식 시세 데이터 레이어 (Mock)
+**설명**: Mock 데이터 기반 시세 데이터 Provider 구현 (추후 한국투자증권 API 연동 대비)
 **범위**:
-- 한국투자증권 OpenAPI 또는 대안 API 연동
-- 실시간 시세 조회 API 래퍼
-- 일/주/월봉 OHLCV 데이터 조회
-- API 인증 및 토큰 관리
-- 에러 핸들링 및 재시도 로직
+- StockDataProvider 인터페이스 정의
+- MockProvider 구현 (개발/테스트용)
+- 일/주/월봉 OHLCV Mock 데이터 생성
+- 현재가, 호가 Mock 데이터
+- 종목 마스터 데이터 (주요 종목)
 
-**산출물**: `/lib/api/stock.ts` - 시세 API 클라이언트
+**산출물**:
+- `/lib/api/stock-provider.ts` - Provider 인터페이스
+- `/lib/api/mock-provider.ts` - Mock 구현체
+- `/lib/api/mock-data/` - Mock 데이터
+
 **의존성**: TASK-001
+
+**추후 확장**: TASK-022 (한국투자증권 API 연동)
 
 ---
 
-### TASK-005: 뉴스 데이터 연동
-**설명**: 종목별 뉴스 수집 및 제공
+### TASK-005: 뉴스 데이터 레이어 (Mock)
+**설명**: Mock 뉴스 데이터 Provider 구현
 **범위**:
-- 뉴스 API 소스 선정 및 연동
-- 종목코드 기반 뉴스 검색
-- 뉴스 데이터 정규화
-- 캐싱 전략 (Redis 또는 메모리)
+- NewsProvider 인터페이스 정의
+- MockNewsProvider 구현
+- 종목별 샘플 뉴스 데이터
 
-**산출물**: `/lib/api/news.ts` - 뉴스 API 클라이언트
+**산출물**: `/lib/api/news-provider.ts`, `/lib/api/mock-news-provider.ts`
 **의존성**: TASK-001
 
 ---
@@ -308,6 +313,36 @@
 
 ---
 
+## Phase 6: 실서비스 연동 (추후)
+
+### TASK-022: 한국투자증권 OpenAPI 연동
+**설명**: Mock Provider를 실제 한국투자증권 API로 교체
+**범위**:
+- 한국투자증권 OpenAPI 인증 (OAuth)
+- KISProvider 구현 (StockDataProvider 인터페이스)
+- 실시간 시세 조회
+- 일/주/월봉 OHLCV 데이터 조회
+- 토큰 갱신 및 에러 핸들링
+- 환경변수 기반 Provider 전환
+
+**산출물**: `/lib/api/kis-provider.ts`
+**의존성**: TASK-004
+**선행조건**: 한국투자증권 계좌 및 API 키 발급
+
+---
+
+### TASK-023: 실시간 뉴스 연동
+**설명**: 실제 뉴스 소스 연동
+**범위**:
+- 뉴스 API 소스 선정 및 연동
+- 종목코드 기반 뉴스 검색
+- 뉴스 감정 분석 (선택)
+
+**산출물**: 실제 뉴스 Provider
+**의존성**: TASK-005
+
+---
+
 ## 태스크 의존성 다이어그램
 
 ```
@@ -364,3 +399,4 @@ TASK-016 + TASK-014 + TASK-012 + TASK-015
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
 | 0.1 | 2026-01-01 | 초안 작성 |
+| 0.2 | 2026-01-01 | Phase 1을 Mock 기반으로 변경, Phase 6 (실서비스 연동) 추가 |
