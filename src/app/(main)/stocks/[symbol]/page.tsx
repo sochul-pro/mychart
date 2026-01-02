@@ -1,7 +1,10 @@
 'use client';
 
-import { use, useState } from 'react';
+import { use, useState, useMemo } from 'react';
 import { ArrowUp, ArrowDown, Plus, Loader2, Star } from 'lucide-react';
+import { StockChartWithIndicators } from '@/components/chart/indicators';
+import type { IndicatorConfig } from '@/components/chart/indicators/types';
+import type { TimeFrame } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -31,11 +34,21 @@ interface StockDetailPageProps {
 
 export default function StockDetailPage({ params }: StockDetailPageProps) {
   const { symbol } = use(params);
-  const { info, quote, isLoading, error } = useStock(symbol);
+  const { info, quote, ohlcv, isLoading, error } = useStock(symbol);
   const { groups, addItem, isAddingItem } = useWatchlist();
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState<string>('');
+  const [timeFrame, setTimeFrame] = useState<TimeFrame>('D');
+
+  // 기본 지표 설정
+  const indicators = useMemo<IndicatorConfig[]>(() => [
+    { type: 'sma', period: 20, color: '#2196F3', enabled: true },
+    { type: 'sma', period: 60, color: '#FF9800', enabled: true },
+    { type: 'bollinger', period: 20, stdDev: 2, color: '#9C27B0', enabled: false },
+    { type: 'rsi', period: 14, overbought: 70, oversold: 30, color: '#E91E63', enabled: false },
+    { type: 'macd', fastPeriod: 12, slowPeriod: 26, signalPeriod: 9, color: '#00BCD4', enabled: false },
+  ], []);
 
   const handleAddToWatchlist = async () => {
     if (!selectedGroupId || !info) return;
@@ -144,13 +157,20 @@ export default function StockDetailPage({ params }: StockDetailPageProps) {
             <CardTitle>차트</CardTitle>
           </CardHeader>
           <CardContent className="p-2 sm:p-6 pt-0">
-            <div className="h-[300px] sm:h-[400px] flex items-center justify-center bg-muted/30 rounded-lg touch-pan-x touch-pan-y">
-              <p className="text-muted-foreground text-center text-sm sm:text-base">
-                차트 컴포넌트 영역
-                <br />
-                <span className="text-xs sm:text-sm">(StockChartWithIndicators 연동 필요)</span>
-              </p>
-            </div>
+            {ohlcv && ohlcv.length > 0 ? (
+              <StockChartWithIndicators
+                data={ohlcv}
+                indicators={indicators}
+                height={400}
+                showVolume={true}
+                timeFrame={timeFrame}
+                onTimeFrameChange={setTimeFrame}
+              />
+            ) : (
+              <div className="h-[300px] sm:h-[400px] flex items-center justify-center bg-muted/30 rounded-lg">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            )}
           </CardContent>
         </Card>
 
