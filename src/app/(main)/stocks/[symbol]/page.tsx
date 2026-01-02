@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -193,6 +194,7 @@ export default function StockDetailPage({ params }: StockDetailPageProps) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>관심종목에 추가</DialogTitle>
+            <DialogDescription>해당 종목을 관심종목 그룹에 추가합니다.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">

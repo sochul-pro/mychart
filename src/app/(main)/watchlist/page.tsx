@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -126,6 +127,7 @@ export default function WatchlistPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>새 관심종목 그룹</DialogTitle>
+            <DialogDescription>새로운 관심종목 그룹을 생성합니다.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">

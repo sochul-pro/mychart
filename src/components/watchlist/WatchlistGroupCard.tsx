@@ -13,6 +13,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -150,6 +151,7 @@ export function WatchlistGroupCard({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>그룹 이름 변경</DialogTitle>
+            <DialogDescription>관심종목 그룹의 이름을 변경합니다.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
@@ -178,6 +180,7 @@ export function WatchlistGroupCard({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>종목 추가</DialogTitle>
+            <DialogDescription>관심종목 그룹에 새로운 종목을 추가합니다.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
@@ -215,12 +218,11 @@ export function WatchlistGroupCard({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>그룹 삭제</DialogTitle>
+            <DialogDescription>
+              &apos;{group.name}&apos; 그룹을 삭제하시겠습니까? 그룹 내 모든 종목도 함께
+              삭제됩니다.
+            </DialogDescription>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            &apos;{group.name}&apos; 그룹을 삭제하시겠습니까?
-            <br />
-            그룹 내 모든 종목도 함께 삭제됩니다.
-          </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDeleteOpen(false)}>
               취소

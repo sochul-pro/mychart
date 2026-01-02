@@ -14,6 +14,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -125,6 +126,7 @@ export function WatchlistItemRow({ item, onUpdate, onDelete }: WatchlistItemRowP
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{item.name} 수정</DialogTitle>
+            <DialogDescription>메모와 목표가/매수가를 수정합니다.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
@@ -173,10 +175,10 @@ export function WatchlistItemRow({ item, onUpdate, onDelete }: WatchlistItemRowP
         <DialogContent>
           <DialogHeader>
             <DialogTitle>종목 삭제</DialogTitle>
+            <DialogDescription>
+              &apos;{item.name}&apos;을(를) 관심종목에서 삭제하시겠습니까?
+            </DialogDescription>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            &apos;{item.name}&apos;을(를) 관심종목에서 삭제하시겠습니까?
-          </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDeleteOpen(false)}>
               취소
