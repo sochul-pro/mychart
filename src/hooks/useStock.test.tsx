@@ -1,17 +1,12 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useStock, useStockInfo, useStockQuote } from './useStock';
-import { mockProvider } from '@/lib/api/mock-provider';
 import type { ReactNode } from 'react';
 
-vi.mock('@/lib/api/mock-provider', () => ({
-  mockProvider: {
-    getStockInfo: vi.fn(),
-    getQuote: vi.fn(),
-    getOHLCV: vi.fn(),
-  },
-}));
+// Mock fetch
+const mockFetch = vi.fn();
+global.fetch = mockFetch;
 
 const createWrapper = () => {
   const queryClient = new QueryClient({
@@ -31,15 +26,39 @@ describe('useStock hooks', () => {
     vi.clearAllMocks();
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const mockInfo = {
+    symbol: '005930',
+    name: '삼성전자',
+    market: 'KOSPI' as const,
+  };
+
+  const mockQuote = {
+    symbol: '005930',
+    price: 75000,
+    change: 1000,
+    changePercent: 1.35,
+    volume: 10000000,
+    high: 76000,
+    low: 74000,
+    open: 74500,
+    prevClose: 74000,
+    timestamp: Date.now(),
+  };
+
+  const mockOHLCV = [
+    { time: Date.now(), open: 74000, high: 76000, low: 73000, close: 75000, volume: 10000000 },
+  ];
+
   describe('useStockInfo', () => {
     it('should fetch stock info', async () => {
-      const mockInfo = {
-        symbol: '005930',
-        name: '삼성전자',
-        market: 'KOSPI' as const,
-      };
-
-      vi.mocked(mockProvider.getStockInfo).mockResolvedValue(mockInfo);
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ info: mockInfo, quote: mockQuote, provider: 'MockProvider' }),
+      });
 
       const { result } = renderHook(() => useStockInfo({ symbol: '005930' }), {
         wrapper: createWrapper(),
@@ -55,20 +74,10 @@ describe('useStock hooks', () => {
 
   describe('useStockQuote', () => {
     it('should fetch stock quote', async () => {
-      const mockQuote = {
-        symbol: '005930',
-        price: 75000,
-        change: 1000,
-        changePercent: 1.35,
-        volume: 10000000,
-        high: 76000,
-        low: 74000,
-        open: 74500,
-        prevClose: 74000,
-        timestamp: Date.now(),
-      };
-
-      vi.mocked(mockProvider.getQuote).mockResolvedValue(mockQuote);
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ info: mockInfo, quote: mockQuote, provider: 'MockProvider' }),
+      });
 
       const { result } = renderHook(() => useStockQuote({ symbol: '005930' }), {
         wrapper: createWrapper(),
@@ -84,32 +93,17 @@ describe('useStock hooks', () => {
 
   describe('useStock', () => {
     it('should fetch all stock data', async () => {
-      const mockInfo = {
-        symbol: '005930',
-        name: '삼성전자',
-        market: 'KOSPI' as const,
-      };
+      // Mock for stock data
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ info: mockInfo, quote: mockQuote, provider: 'MockProvider' }),
+      });
 
-      const mockQuote = {
-        symbol: '005930',
-        price: 75000,
-        change: 1000,
-        changePercent: 1.35,
-        volume: 10000000,
-        high: 76000,
-        low: 74000,
-        open: 74500,
-        prevClose: 74000,
-        timestamp: Date.now(),
-      };
-
-      const mockOHLCV = [
-        { time: Date.now(), open: 74000, high: 76000, low: 73000, close: 75000, volume: 10000000 },
-      ];
-
-      vi.mocked(mockProvider.getStockInfo).mockResolvedValue(mockInfo);
-      vi.mocked(mockProvider.getQuote).mockResolvedValue(mockQuote);
-      vi.mocked(mockProvider.getOHLCV).mockResolvedValue(mockOHLCV);
+      // Mock for OHLCV data
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ symbol: '005930', timeFrame: 'D', data: mockOHLCV, provider: 'MockProvider' }),
+      });
 
       const { result } = renderHook(() => useStock('005930'), {
         wrapper: createWrapper(),
