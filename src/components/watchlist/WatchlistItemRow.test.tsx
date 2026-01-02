@@ -20,7 +20,7 @@ describe('WatchlistItemRow', () => {
     order: 0,
     createdAt: new Date(),
     updatedAt: new Date(),
-    watchlistGroupId: 'group-1',
+    groupId: 'group-1',
   };
 
   const mockOnUpdate = vi.fn().mockResolvedValue(undefined);
