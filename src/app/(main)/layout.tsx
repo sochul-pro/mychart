@@ -18,8 +18,11 @@ export default async function MainLayout({
       <header className="border-b">
         <div className="container mx-auto px-4 h-14 flex items-center justify-between">
           <nav className="flex items-center gap-6">
-            <Link href="/" className="text-lg font-bold">
+            <Link href="/dashboard" className="text-lg font-bold">
               MyChart
+            </Link>
+            <Link href="/dashboard" className="text-sm text-muted-foreground hover:text-foreground">
+              대시보드
             </Link>
             <Link href="/watchlist" className="text-sm text-muted-foreground hover:text-foreground">
               관심종목
@@ -29,6 +32,9 @@ export default async function MainLayout({
             </Link>
           </nav>
           <div className="flex items-center gap-4">
+            <Link href="/settings" className="text-sm text-muted-foreground hover:text-foreground">
+              설정
+            </Link>
             <span className="text-sm text-muted-foreground">{session.user.email}</span>
           </div>
         </div>
