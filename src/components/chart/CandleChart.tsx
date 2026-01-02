@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import {
   createChart,
   IChartApi,
@@ -59,7 +59,7 @@ function toVolumeData(data: OHLCV[], upColor: string, downColor: string): Histog
  *
  * Lightweight Charts를 사용한 주식 차트 렌더링
  */
-export function CandleChart({
+export const CandleChart = memo(function CandleChart({
   data,
   width = '100%',
   height = 400,
@@ -163,21 +163,26 @@ export function CandleChart({
     };
   }, [height, showVolume, upColor, downColor, width]);
 
+  // 데이터 변환 메모이제이션
+  const candleData = useMemo(() => toChartData(data), [data]);
+  const volumeData = useMemo(
+    () => toVolumeData(data, upColor + '80', downColor + '80'),
+    [data, upColor, downColor]
+  );
+
   // 데이터 업데이트
   useEffect(() => {
     if (!candleSeriesRef.current || data.length === 0) return;
 
-    const candleData = toChartData(data);
     candleSeriesRef.current.setData(candleData);
 
     if (volumeSeriesRef.current) {
-      const volumeData = toVolumeData(data, upColor + '80', downColor + '80');
       volumeSeriesRef.current.setData(volumeData);
     }
 
     // 마지막 데이터로 스크롤
     chartRef.current?.timeScale().fitContent();
-  }, [data, upColor, downColor]);
+  }, [candleData, volumeData, data.length]);
 
   // 타임프레임 변경 핸들러
   const handleTimeFrameChange = useCallback(
@@ -222,6 +227,6 @@ export function CandleChart({
       />
     </div>
   );
-}
+});
 
 export default CandleChart;

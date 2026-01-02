@@ -1,5 +1,6 @@
 'use client';
 
+import { memo, useMemo } from 'react';
 import Link from 'next/link';
 import { ArrowUp, ArrowDown, TrendingUp, Star } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -11,7 +12,7 @@ interface ScreenerTableProps {
   isLoading?: boolean;
 }
 
-export function ScreenerTable({ results, isLoading }: ScreenerTableProps) {
+export const ScreenerTable = memo(function ScreenerTable({ results, isLoading }: ScreenerTableProps) {
   if (isLoading) {
     return (
       <div className="space-y-2">
@@ -134,25 +135,25 @@ export function ScreenerTable({ results, isLoading }: ScreenerTableProps) {
       </table>
     </div>
   );
-}
+});
 
-function ScoreBar({ score }: { score: number }) {
-  const getColor = (score: number) => {
+const ScoreBar = memo(function ScoreBar({ score }: { score: number }) {
+  const color = useMemo(() => {
     if (score >= 80) return 'bg-green-500';
     if (score >= 60) return 'bg-yellow-500';
     if (score >= 40) return 'bg-orange-500';
     return 'bg-gray-400';
-  };
+  }, [score]);
 
   return (
     <div className="flex items-center gap-2">
       <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
         <div
-          className={cn('h-full rounded-full', getColor(score))}
+          className={cn('h-full rounded-full', color)}
           style={{ width: `${score}%` }}
         />
       </div>
       <span className="text-sm font-mono">{score}</span>
     </div>
   );
-}
+});

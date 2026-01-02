@@ -1,5 +1,6 @@
 'use client';
 
+import { memo, useMemo } from 'react';
 import { ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -9,8 +10,8 @@ interface NewsCardProps {
   news: News;
 }
 
-export function NewsCard({ news }: NewsCardProps) {
-  const timeAgo = getTimeAgo(news.publishedAt);
+export const NewsCard = memo(function NewsCard({ news }: NewsCardProps) {
+  const timeAgo = useMemo(() => getTimeAgo(news.publishedAt), [news.publishedAt]);
 
   return (
     <a
@@ -42,25 +43,27 @@ export function NewsCard({ news }: NewsCardProps) {
       </div>
     </a>
   );
-}
+});
 
-function SentimentBadge({ sentiment }: { sentiment?: 'positive' | 'negative' | 'neutral' }) {
+const SentimentBadge = memo(function SentimentBadge({ sentiment }: { sentiment?: 'positive' | 'negative' | 'neutral' }) {
+  const { className, label } = useMemo(() => {
+    if (!sentiment) return { className: '', label: '' };
+    const variants: Record<string, { className: string; label: string }> = {
+      positive: { className: 'bg-green-100 text-green-700', label: '긍정' },
+      negative: { className: 'bg-red-100 text-red-700', label: '부정' },
+      neutral: { className: 'bg-gray-100 text-gray-700', label: '중립' },
+    };
+    return variants[sentiment] || { className: '', label: '' };
+  }, [sentiment]);
+
   if (!sentiment) return null;
-
-  const variants: Record<string, { className: string; label: string }> = {
-    positive: { className: 'bg-green-100 text-green-700', label: '긍정' },
-    negative: { className: 'bg-red-100 text-red-700', label: '부정' },
-    neutral: { className: 'bg-gray-100 text-gray-700', label: '중립' },
-  };
-
-  const { className, label } = variants[sentiment];
 
   return (
     <Badge variant="outline" className={cn('text-xs', className)}>
       {label}
     </Badge>
   );
-}
+});
 
 function getTimeAgo(timestamp: number): string {
   const now = Date.now();
