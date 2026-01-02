@@ -36,10 +36,10 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="container mx-auto py-6 px-4 max-w-2xl">
-      <h1 className="text-2xl font-bold mb-6">설정</h1>
+    <div className="container mx-auto py-4 sm:py-6 px-4 max-w-2xl">
+      <h1 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">설정</h1>
 
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {/* 계정 정보 */}
         <Card>
           <CardHeader>
@@ -139,26 +139,26 @@ export default function SettingsPage() {
             <CardDescription>알림 수신 방법을 설정합니다.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <p className="font-medium">이메일 알림</p>
                 <p className="text-sm text-muted-foreground">
                   매매 신호 발생 시 이메일로 알림을 받습니다.
                 </p>
               </div>
-              <Button variant="outline" size="sm" disabled>
+              <Button variant="outline" size="sm" disabled className="w-full sm:w-auto">
                 준비 중
               </Button>
             </div>
             <Separator />
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <p className="font-medium">푸시 알림</p>
                 <p className="text-sm text-muted-foreground">
                   브라우저 푸시 알림을 받습니다.
                 </p>
               </div>
-              <Button variant="outline" size="sm" disabled>
+              <Button variant="outline" size="sm" disabled className="w-full sm:w-auto">
                 준비 중
               </Button>
             </div>
@@ -167,7 +167,7 @@ export default function SettingsPage() {
 
         {/* 저장 버튼 */}
         <div className="flex justify-end">
-          <Button onClick={handleSave} disabled={isSaving}>
+          <Button onClick={handleSave} disabled={isSaving} className="w-full sm:w-auto">
             {isSaving ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
             ) : (

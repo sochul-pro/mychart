@@ -21,10 +21,10 @@ export default function DashboardPage() {
   const watchlistSymbols = groups.flatMap((g) => g.items.map((i) => i.symbol));
 
   return (
-    <div className="container mx-auto py-6 px-4">
-      <h1 className="text-2xl font-bold mb-6">대시보드</h1>
+    <div className="container mx-auto py-4 sm:py-6 px-4">
+      <h1 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">대시보드</h1>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
         {/* 관심종목 요약 */}
         <Card className="md:col-span-2 lg:col-span-1">
           <CardHeader className="flex flex-row items-center justify-between">

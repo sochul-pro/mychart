@@ -21,15 +21,15 @@ export default function ScreenerPage() {
   });
 
   return (
-    <div className="container mx-auto py-6 px-4">
-      <div className="flex items-center justify-between mb-6">
+    <div className="container mx-auto py-4 sm:py-6 px-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 sm:mb-6">
         <div>
-          <h1 className="text-2xl font-bold">주도주 스크리너</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">주도주 스크리너</h1>
           <p className="text-muted-foreground text-sm mt-1">
             모멘텀 기반으로 주도주를 발굴합니다
           </p>
         </div>
-        <Button variant="outline" onClick={() => refetch()} disabled={isLoading}>
+        <Button variant="outline" onClick={() => refetch()} disabled={isLoading} className="w-full sm:w-auto">
           {isLoading ? (
             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
           ) : (
@@ -39,7 +39,7 @@ export default function ScreenerPage() {
         </Button>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-[280px_1fr]">
         {/* 필터 사이드바 */}
         <Card className="h-fit">
           <CardHeader>

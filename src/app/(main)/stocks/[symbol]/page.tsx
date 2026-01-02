@@ -70,10 +70,10 @@ export default function StockDetailPage({ params }: StockDetailPageProps) {
   return (
     <div className="container mx-auto py-6 px-4">
       {/* 헤더 */}
-      <div className="flex items-start justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
         <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold">{info.name}</h1>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <h1 className="text-xl sm:text-2xl font-bold">{info.name}</h1>
             <Badge variant="outline">{info.market}</Badge>
             {info.sector && (
               <Badge variant="secondary">{info.sector}</Badge>
@@ -81,7 +81,7 @@ export default function StockDetailPage({ params }: StockDetailPageProps) {
           </div>
           <p className="text-muted-foreground mt-1">{info.symbol}</p>
         </div>
-        <Button onClick={() => setIsAddDialogOpen(true)}>
+        <Button onClick={() => setIsAddDialogOpen(true)} className="w-full sm:w-auto">
           <Plus className="h-4 w-4 mr-2" />
           관심종목 추가
         </Button>
@@ -90,14 +90,14 @@ export default function StockDetailPage({ params }: StockDetailPageProps) {
       {/* 시세 정보 */}
       <Card className="mb-6">
         <CardContent className="pt-6">
-          <div className="flex items-baseline gap-4">
-            <span className="text-4xl font-bold">
+          <div className="flex flex-wrap items-baseline gap-2 sm:gap-4">
+            <span className="text-3xl sm:text-4xl font-bold">
               {quote.price.toLocaleString()}
             </span>
-            <span className="text-lg text-muted-foreground">원</span>
+            <span className="text-base sm:text-lg text-muted-foreground">원</span>
             <div
               className={cn(
-                'flex items-center gap-1 text-lg font-medium',
+                'flex items-center gap-1 text-base sm:text-lg font-medium',
                 quote.changePercent > 0
                   ? 'text-red-500'
                   : quote.changePercent < 0
@@ -106,9 +106,9 @@ export default function StockDetailPage({ params }: StockDetailPageProps) {
               )}
             >
               {quote.changePercent > 0 ? (
-                <ArrowUp className="h-5 w-5" />
+                <ArrowUp className="h-4 w-4 sm:h-5 sm:w-5" />
               ) : quote.changePercent < 0 ? (
-                <ArrowDown className="h-5 w-5" />
+                <ArrowDown className="h-4 w-4 sm:h-5 sm:w-5" />
               ) : null}
               {quote.change > 0 ? '+' : ''}
               {quote.change.toLocaleString()} ({quote.changePercent > 0 ? '+' : ''}
@@ -140,15 +140,15 @@ export default function StockDetailPage({ params }: StockDetailPageProps) {
       <div className="grid gap-6 lg:grid-cols-[1fr_350px]">
         {/* 차트 영역 */}
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-2 sm:pb-6">
             <CardTitle>차트</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="h-[400px] flex items-center justify-center bg-muted/30 rounded-lg">
-              <p className="text-muted-foreground">
+          <CardContent className="p-2 sm:p-6 pt-0">
+            <div className="h-[300px] sm:h-[400px] flex items-center justify-center bg-muted/30 rounded-lg touch-pan-x touch-pan-y">
+              <p className="text-muted-foreground text-center text-sm sm:text-base">
                 차트 컴포넌트 영역
                 <br />
-                <span className="text-sm">(StockChartWithIndicators 연동 필요)</span>
+                <span className="text-xs sm:text-sm">(StockChartWithIndicators 연동 필요)</span>
               </p>
             </div>
           </CardContent>
@@ -163,7 +163,7 @@ export default function StockDetailPage({ params }: StockDetailPageProps) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <NewsFeed symbol={symbol} limit={10} title="" height="400px" />
+            <NewsFeed symbol={symbol} limit={10} title="" height="350px" />
           </CardContent>
         </Card>
       </div>
