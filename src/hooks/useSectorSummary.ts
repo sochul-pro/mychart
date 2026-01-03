@@ -45,47 +45,13 @@ export function useSectorDetail(code: string) {
   });
 }
 
-// 섹터 핫 종목에 필요한 종목별 시세 정보를 가져오는 훅
+// 섹터 핫 종목 데이터 훅 (종목명, 가격, 등락률 포함)
 export function useSectorHotStocksData() {
   const { data, isLoading, error } = useSectorSummaries();
 
-  // 모든 핫 종목의 시세 정보를 가져오기 위한 심볼 목록
-  const allHotSymbols = data?.summaries.flatMap(s => s.hotStocks) ?? [];
-  const uniqueSymbols = [...new Set(allHotSymbols)];
-
-  const stockQuotesQuery = useQuery({
-    queryKey: ['hotStockQuotes', uniqueSymbols.join(',')],
-    queryFn: async () => {
-      if (uniqueSymbols.length === 0) return {};
-
-      // 각 종목의 정보와 시세를 가져옴
-      const results: Record<string, { stock: StockInfo; quote: Quote }> = {};
-
-      const promises = uniqueSymbols.map(async (symbol) => {
-        try {
-          const res = await fetch(`/api/stocks/${symbol}`);
-          if (res.ok) {
-            const data = await res.json();
-            if (data.stock && data.quote) {
-              results[symbol] = { stock: data.stock, quote: data.quote };
-            }
-          }
-        } catch {
-          // 개별 종목 조회 실패 무시
-        }
-      });
-
-      await Promise.all(promises);
-      return results;
-    },
-    staleTime: 30 * 1000,
-    enabled: uniqueSymbols.length > 0,
-  });
-
   return {
     summaries: data?.summaries ?? [],
-    stockQuotes: stockQuotesQuery.data ?? {},
-    isLoading: isLoading || stockQuotesQuery.isLoading,
-    error: error || stockQuotesQuery.error,
+    isLoading,
+    error,
   };
 }

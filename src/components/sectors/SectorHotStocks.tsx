@@ -6,18 +6,16 @@ import { ArrowUp, ArrowDown, Flame } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import type { SectorSummary, StockInfo, Quote } from '@/types';
+import type { SectorSummary } from '@/types';
 
 interface SectorHotStocksProps {
   summaries: SectorSummary[];
-  stockQuotes?: Record<string, { stock: StockInfo; quote: Quote }>;
   isLoading?: boolean;
   maxSectors?: number;
 }
 
 export const SectorHotStocks = memo(function SectorHotStocks({
   summaries,
-  stockQuotes = {},
   isLoading,
   maxSectors = 6,
 }: SectorHotStocksProps) {
@@ -64,7 +62,6 @@ export const SectorHotStocks = memo(function SectorHotStocks({
           <SectorCard
             key={summary.sector.code}
             summary={summary}
-            stockQuotes={stockQuotes}
           />
         ))}
       </div>
@@ -74,10 +71,9 @@ export const SectorHotStocks = memo(function SectorHotStocks({
 
 interface SectorCardProps {
   summary: SectorSummary;
-  stockQuotes: Record<string, { stock: StockInfo; quote: Quote }>;
 }
 
-const SectorCard = memo(function SectorCard({ summary, stockQuotes }: SectorCardProps) {
+const SectorCard = memo(function SectorCard({ summary }: SectorCardProps) {
   const { sector, avgChangePercent, advanceCount, declineCount, hotStocks } = summary;
 
   return (
@@ -116,30 +112,16 @@ const SectorCard = memo(function SectorCard({ summary, stockQuotes }: SectorCard
       </CardHeader>
       <CardContent className="pt-0">
         <div className="space-y-1">
-          {hotStocks.slice(0, 5).map((symbol, index) => {
-            const data = stockQuotes[symbol];
-            if (!data) {
-              return (
-                <HotStockRow
-                  key={symbol}
-                  rank={index + 1}
-                  symbol={symbol}
-                  name={symbol}
-                  changePercent={0}
-                />
-              );
-            }
-            return (
-              <HotStockRow
-                key={symbol}
-                rank={index + 1}
-                symbol={symbol}
-                name={data.stock.name}
-                price={data.quote.price}
-                changePercent={data.quote.changePercent}
-              />
-            );
-          })}
+          {hotStocks.slice(0, 5).map((stock, index) => (
+            <HotStockRow
+              key={stock.symbol}
+              rank={index + 1}
+              symbol={stock.symbol}
+              name={stock.name}
+              price={stock.price}
+              changePercent={stock.changePercent ?? 0}
+            />
+          ))}
         </div>
       </CardContent>
     </Card>

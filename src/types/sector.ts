@@ -38,6 +38,14 @@ export interface SectorGroup {
   stocks: string[];      // 종목 코드 배열
 }
 
+// 핫 종목 정보
+export interface HotStock {
+  symbol: string;
+  name: string;
+  price?: number;
+  changePercent?: number;
+}
+
 // 업종별 시세 요약
 export interface SectorSummary {
   sector: Sector;
@@ -47,7 +55,7 @@ export interface SectorSummary {
   declineCount: number;      // 하락 종목 수
   unchangedCount: number;    // 보합 종목 수
   totalVolume: number;       // 총 거래량
-  hotStocks: string[];       // 핫 종목 (상위 5개)
+  hotStocks: HotStock[];     // 핫 종목 (상위 5개)
 }
 
 // 업종 마스터 데이터

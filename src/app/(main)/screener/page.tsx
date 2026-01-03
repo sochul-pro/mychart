@@ -24,7 +24,6 @@ export default function ScreenerPage() {
 
   const {
     summaries: sectorSummaries,
-    stockQuotes: sectorStockQuotes,
     isLoading: isSectorLoading,
   } = useSectorHotStocksData();
 
@@ -51,7 +50,6 @@ export default function ScreenerPage() {
       <div className="mb-6">
         <SectorHotStocks
           summaries={sectorSummaries}
-          stockQuotes={sectorStockQuotes}
           isLoading={isSectorLoading}
           maxSectors={6}
         />

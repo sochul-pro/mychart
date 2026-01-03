@@ -1,4 +1,4 @@
-import type { OHLCV, StockInfo, Quote, Orderbook, TimeFrame, SectorCode, Sector, SectorSummary } from '@/types';
+import type { OHLCV, StockInfo, Quote, Orderbook, TimeFrame, SectorCode, Sector, SectorSummary, HotStock } from '@/types';
 import { SECTORS, SECTOR_CODES } from '@/types/sector';
 import type { StockDataProvider } from './stock-provider';
 import { getStocksBySector as getStockSymbolsBySector } from './sector-master';
@@ -434,7 +434,7 @@ export class KISProvider implements StockDataProvider {
     let totalVolume = 0;
     let totalChangePercent = 0;
 
-    const stockScores: { symbol: string; score: number }[] = [];
+    const stockScores: { symbol: string; name: string; quote: Quote; score: number }[] = [];
 
     for (const quote of quotes) {
       if (quote.changePercent > 0) advanceCount++;
@@ -444,16 +444,24 @@ export class KISProvider implements StockDataProvider {
       totalVolume += quote.volume;
       totalChangePercent += quote.changePercent;
 
+      const stock = stocks.find((s) => s.symbol === quote.symbol);
       stockScores.push({
         symbol: quote.symbol,
+        name: stock?.name || quote.symbol,
+        quote,
         score: quote.changePercent * 2 + Math.log10(quote.volume + 1),
       });
     }
 
-    const hotStocks = stockScores
+    const hotStocks: HotStock[] = stockScores
       .sort((a, b) => b.score - a.score)
       .slice(0, 5)
-      .map((s) => s.symbol);
+      .map((s) => ({
+        symbol: s.symbol,
+        name: s.name,
+        price: s.quote.price,
+        changePercent: s.quote.changePercent,
+      }));
 
     return {
       sector: SECTORS[sectorCode],

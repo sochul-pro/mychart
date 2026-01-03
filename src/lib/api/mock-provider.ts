@@ -1,4 +1,4 @@
-import type { OHLCV, StockInfo, Quote, Orderbook, TimeFrame, SectorCode, Sector, SectorSummary } from '@/types';
+import type { OHLCV, StockInfo, Quote, Orderbook, TimeFrame, SectorCode, Sector, SectorSummary, HotStock } from '@/types';
 import { SECTORS, SECTOR_CODES } from '@/types/sector';
 import type { StockDataProvider } from './stock-provider';
 import { MOCK_STOCKS, findStockBySymbol, searchStocks as searchMockStocks } from './mock-data/stocks';
@@ -130,7 +130,7 @@ export class MockProvider implements StockDataProvider {
     let totalVolume = 0;
     let totalChangePercent = 0;
 
-    const stockScores: { symbol: string; score: number }[] = [];
+    const stockScores: { symbol: string; name: string; quote: Quote; score: number }[] = [];
 
     for (const quote of quotes) {
       if (quote.changePercent > 0) advanceCount++;
@@ -140,18 +140,26 @@ export class MockProvider implements StockDataProvider {
       totalVolume += quote.volume;
       totalChangePercent += quote.changePercent;
 
+      const stock = stocks.find((s) => s.symbol === quote.symbol);
       // 간단한 핫 종목 점수 계산 (등락률 + 거래량 가중)
       stockScores.push({
         symbol: quote.symbol,
+        name: stock?.name || quote.symbol,
+        quote,
         score: quote.changePercent * 2 + Math.log10(quote.volume + 1),
       });
     }
 
-    // 상위 5개 핫 종목
-    const hotStocks = stockScores
+    // 상위 5개 핫 종목 (종목명, 가격, 등락률 포함)
+    const hotStocks: HotStock[] = stockScores
       .sort((a, b) => b.score - a.score)
       .slice(0, 5)
-      .map((s) => s.symbol);
+      .map((s) => ({
+        symbol: s.symbol,
+        name: s.name,
+        price: s.quote.price,
+        changePercent: s.quote.changePercent,
+      }));
 
     return {
       sector: SECTORS[sectorCode],
