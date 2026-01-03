@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { mockProvider } from '@/lib/api/mock-provider';
+import { stockProvider } from '@/lib/api/provider-factory';
 import {
   createScreenerResult,
   applyFilters,
@@ -32,15 +32,15 @@ export async function GET(request: NextRequest) {
 
   try {
     // 모든 종목 가져오기
-    const stocks = await mockProvider.getAllStocks();
+    const stocks = await stockProvider.getAllStocks();
 
     // 각 종목의 시세와 OHLCV 데이터 가져오기
     const results: ScreenerResult[] = [];
 
     for (const stock of stocks) {
       const [quote, ohlcv] = await Promise.all([
-        mockProvider.getQuote(stock.symbol),
-        mockProvider.getOHLCV(stock.symbol, 'D', 252), // 1년치 데이터
+        stockProvider.getQuote(stock.symbol),
+        stockProvider.getOHLCV(stock.symbol, 'D', 252), // 1년치 데이터
       ]);
 
       if (quote && ohlcv.length > 0) {

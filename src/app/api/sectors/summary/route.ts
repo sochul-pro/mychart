@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { mockProvider } from '@/lib/api/mock-provider';
+import { stockProvider } from '@/lib/api/provider-factory';
 import type { SectorSummary } from '@/types';
 
 export interface SectorSummaryResponse {
@@ -10,7 +10,7 @@ export interface SectorSummaryResponse {
 // GET /api/sectors/summary - 전체 섹터 시세 요약
 export async function GET() {
   try {
-    const summaries = await mockProvider.getAllSectorSummaries();
+    const summaries = await stockProvider.getAllSectorSummaries();
 
     const response: SectorSummaryResponse = {
       summaries,

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { mockProvider } from '@/lib/api/mock-provider';
+import { stockProvider } from '@/lib/api/provider-factory';
 import { SECTORS } from '@/types/sector';
 import type { SectorCode } from '@/types';
 
@@ -21,8 +21,8 @@ export async function GET(
 
   try {
     const [summary, stocks] = await Promise.all([
-      mockProvider.getSectorSummary(sectorCode),
-      mockProvider.getStocksBySector(sectorCode),
+      stockProvider.getSectorSummary(sectorCode),
+      stockProvider.getStocksBySector(sectorCode),
     ]);
 
     if (!summary) {
@@ -33,7 +33,7 @@ export async function GET(
     }
 
     // 종목별 시세 정보도 함께 반환
-    const quotes = await mockProvider.getQuotes(stocks.map(s => s.symbol));
+    const quotes = await stockProvider.getQuotes(stocks.map(s => s.symbol));
 
     const stocksWithQuotes = stocks.map(stock => {
       const quote = quotes.find(q => q.symbol === stock.symbol);
