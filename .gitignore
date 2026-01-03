@@ -32,6 +32,9 @@ yarn-error.log*
 .env
 .env*.local
 
+# KIS API token cache
+.kis-token.json
+
 # vercel
 .vercel
 

@@ -2,6 +2,8 @@ import type { OHLCV, StockInfo, Quote, Orderbook, TimeFrame, SectorCode, Sector,
 import { SECTORS, SECTOR_CODES } from '@/types/sector';
 import type { StockDataProvider } from './stock-provider';
 import { getStocksBySector as getStockSymbolsBySector, getAllMappedSymbols } from './sector-master';
+import * as fs from 'fs';
+import * as path from 'path';
 
 /**
  * 한국투자증권 OpenAPI 설정
@@ -22,6 +24,9 @@ interface KISToken {
   expiresAt: number;
 }
 
+// 토큰 캐시 파일 경로
+const TOKEN_CACHE_FILE = path.join(process.cwd(), '.kis-token.json');
+
 /**
  * 한국투자증권 OpenAPI Provider
  * 실제 시세 데이터 조회
@@ -32,18 +37,54 @@ export class KISProvider implements StockDataProvider {
   private config: KISConfig;
   private token: KISToken | null = null;
   private baseUrl: string;
+  private tokenPromise: Promise<void> | null = null; // 토큰 발급 중복 방지
 
   constructor(config: KISConfig) {
     this.config = config;
     this.baseUrl = config.isProduction
       ? 'https://openapi.koreainvestment.com:9443'
       : 'https://openapivts.koreainvestment.com:29443';
+
+    // 시작 시 캐시된 토큰 로드
+    this.loadCachedToken();
+  }
+
+  /**
+   * 캐시된 토큰 로드
+   */
+  private loadCachedToken(): void {
+    try {
+      if (fs.existsSync(TOKEN_CACHE_FILE)) {
+        const cached = JSON.parse(fs.readFileSync(TOKEN_CACHE_FILE, 'utf-8'));
+        // 만료 5분 전까지 유효하면 사용
+        if (cached.expiresAt && Date.now() < cached.expiresAt - 5 * 60 * 1000) {
+          this.token = cached;
+          console.log('[KIS] 캐시된 토큰 로드 완료');
+        }
+      }
+    } catch (error) {
+      console.warn('[KIS] 토큰 캐시 로드 실패:', error);
+    }
+  }
+
+  /**
+   * 토큰 캐시 저장
+   */
+  private saveCachedToken(): void {
+    try {
+      fs.writeFileSync(TOKEN_CACHE_FILE, JSON.stringify(this.token, null, 2));
+      console.log('[KIS] 토큰 캐시 저장 완료');
+    } catch (error) {
+      console.warn('[KIS] 토큰 캐시 저장 실패:', error);
+    }
   }
 
   /**
    * OAuth 토큰 발급
    */
   async authenticate(): Promise<void> {
+    console.log('[KIS] 토큰 발급 요청...');
+
     const response = await fetch(`${this.baseUrl}/oauth2/tokenP`, {
       method: 'POST',
       headers: {
@@ -57,6 +98,8 @@ export class KISProvider implements StockDataProvider {
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[KIS] 토큰 발급 실패:', response.status, errorText);
       throw new Error(`KIS 인증 실패: ${response.status}`);
     }
 
@@ -66,15 +109,36 @@ export class KISProvider implements StockDataProvider {
       tokenType: data.token_type,
       expiresAt: Date.now() + (data.expires_in - 60) * 1000, // 1분 여유
     };
+
+    // 토큰 캐시 저장
+    this.saveCachedToken();
+    console.log('[KIS] 토큰 발급 완료, 만료:', new Date(this.token.expiresAt).toLocaleString());
   }
 
   /**
    * 토큰 유효성 확인 및 갱신
+   * 동시 요청 시 중복 발급 방지
    */
   private async ensureToken(): Promise<string> {
-    if (!this.token || Date.now() >= this.token.expiresAt) {
-      await this.authenticate();
+    // 토큰이 유효하면 바로 반환
+    if (this.token && Date.now() < this.token.expiresAt) {
+      return this.token.accessToken;
     }
+
+    // 이미 토큰 발급 중이면 기다림
+    if (this.tokenPromise) {
+      await this.tokenPromise;
+      return this.token!.accessToken;
+    }
+
+    // 토큰 발급 시작
+    this.tokenPromise = this.authenticate();
+    try {
+      await this.tokenPromise;
+    } finally {
+      this.tokenPromise = null;
+    }
+
     return this.token!.accessToken;
   }
 
