@@ -5,27 +5,23 @@ import { RefreshCw, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScreenerTable, ScreenerFilters } from '@/components/screener';
-import { SectorHotStocks } from '@/components/sectors';
 import { useScreener } from '@/hooks/useScreener';
-import { useSectorHotStocksData } from '@/hooks/useSectorSummary';
-import type { ScreenerFilter } from '@/types';
+import type { ScreenerFilter, RankingWeights } from '@/types';
+import { DEFAULT_RANKING_WEIGHTS } from '@/types/screener';
 
 export default function ScreenerPage() {
   const [filter, setFilter] = useState<ScreenerFilter>({
     market: 'all',
   });
-  const [sortBy, setSortBy] = useState<'score' | 'change_percent' | 'volume_ratio'>('score');
+  const [weights, setWeights] = useState<RankingWeights>(DEFAULT_RANKING_WEIGHTS);
+  const [minRankingCount, setMinRankingCount] = useState(0);
 
   const { results, total, isLoading, refetch } = useScreener({
     filter,
-    sortBy,
+    weights,
+    minRankingCount,
     limit: 50,
   });
-
-  const {
-    summaries: sectorSummaries,
-    isLoading: isSectorLoading,
-  } = useSectorHotStocksData();
 
   return (
     <div className="container mx-auto py-4 sm:py-6 px-4">
@@ -33,10 +29,15 @@ export default function ScreenerPage() {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold">주도주 스크리너</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            모멘텀 기반으로 주도주를 발굴합니다
+            4가지 순위(등락률, 회전율, 거래대금, 외인/기관)의 교집합으로 주도주를 발굴합니다
           </p>
         </div>
-        <Button variant="outline" onClick={() => refetch()} disabled={isLoading} className="w-full sm:w-auto">
+        <Button
+          variant="outline"
+          onClick={() => refetch()}
+          disabled={isLoading}
+          className="w-full sm:w-auto"
+        >
           {isLoading ? (
             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
           ) : (
@@ -44,15 +45,6 @@ export default function ScreenerPage() {
           )}
           새로고침
         </Button>
-      </div>
-
-      {/* 섹터별 핫 종목 */}
-      <div className="mb-6">
-        <SectorHotStocks
-          summaries={sectorSummaries}
-          isLoading={isSectorLoading}
-          maxSectors={6}
-        />
       </div>
 
       <div className="grid gap-4 sm:gap-6 lg:grid-cols-[280px_1fr]">
@@ -65,8 +57,10 @@ export default function ScreenerPage() {
             <ScreenerFilters
               filter={filter}
               onFilterChange={setFilter}
-              sortBy={sortBy}
-              onSortChange={setSortBy}
+              weights={weights}
+              onWeightsChange={setWeights}
+              minRankingCount={minRankingCount}
+              onMinRankingCountChange={setMinRankingCount}
             />
           </CardContent>
         </Card>

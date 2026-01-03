@@ -1,36 +1,47 @@
 import { useQuery } from '@tanstack/react-query';
-import type { ScreenerResponse, ScreenerFilter } from '@/types';
+import type { ScreenerFilter, RankingWeights, LeaderStock } from '@/types';
+import { DEFAULT_RANKING_WEIGHTS } from '@/types/screener';
+
+// 스크리너 응답 타입
+interface LeaderScreenerResponse {
+  results: LeaderStock[];
+  total: number;
+  filter: ScreenerFilter;
+  weights: RankingWeights;
+  updatedAt: number;
+  message?: string;
+}
 
 interface UseScreenerOptions {
   filter?: ScreenerFilter;
-  sortBy?: 'score' | 'change_percent' | 'volume_ratio';
+  weights?: RankingWeights;
+  minRankingCount?: number;
+  minScore?: number;
   limit?: number;
   enabled?: boolean;
 }
 
-async function fetchScreener(options: UseScreenerOptions): Promise<ScreenerResponse> {
+async function fetchScreener(options: UseScreenerOptions): Promise<LeaderScreenerResponse> {
   const params = new URLSearchParams();
 
+  // 필터 파라미터
   if (options.filter?.market) {
     params.set('market', options.filter.market);
   }
-  if (options.filter?.sector) {
-    params.set('sector', options.filter.sector);
+
+  // 가중치 파라미터
+  const weights = options.weights || DEFAULT_RANKING_WEIGHTS;
+  params.set('changeWeight', String(weights.changeWeight));
+  params.set('turnoverWeight', String(weights.turnoverWeight));
+  params.set('amountWeight', String(weights.amountWeight));
+  params.set('foreignWeight', String(weights.foreignWeight));
+
+  // 추가 필터
+  if (options.minRankingCount) {
+    params.set('minRankingCount', String(options.minRankingCount));
   }
-  if (options.filter?.minVolumeRatio !== undefined) {
-    params.set('minVolumeRatio', String(options.filter.minVolumeRatio));
-  }
-  if (options.filter?.minChangePercent !== undefined) {
-    params.set('minChangePercent', String(options.filter.minChangePercent));
-  }
-  if (options.filter?.maxChangePercent !== undefined) {
-    params.set('maxChangePercent', String(options.filter.maxChangePercent));
-  }
-  if (options.filter?.onlyNewHigh) {
-    params.set('onlyNewHigh', 'true');
-  }
-  if (options.sortBy) {
-    params.set('sortBy', options.sortBy);
+  if (options.minScore) {
+    params.set('minScore', String(options.minScore));
   }
   if (options.limit) {
     params.set('limit', String(options.limit));
@@ -54,6 +65,7 @@ export function useScreener(options: UseScreenerOptions = {}) {
     data: query.data,
     results: query.data?.results ?? [],
     total: query.data?.total ?? 0,
+    weights: query.data?.weights ?? DEFAULT_RANKING_WEIGHTS,
     isLoading: query.isLoading,
     error: query.error,
     refetch: query.refetch,

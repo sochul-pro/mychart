@@ -159,6 +159,14 @@ export function clearOHLCVCache(): void {
   }
 }
 
+// 캐시 TTL 상수
+export const CACHE_TTL = {
+  QUOTE: 30 * 1000, // 30초
+  STOCK_INFO: 5 * 60 * 1000, // 5분
+  RANKING: 60 * 1000, // 1분
+  LEADER_STOCKS: 30 * 1000, // 30초
+};
+
 // 캐시 키 생성 헬퍼
 export const CacheKeys = {
   stockInfo: (symbol: string) => `stockInfo:${symbol}`,
@@ -167,4 +175,8 @@ export const CacheKeys = {
   allStocks: () => 'allStocks',
   sectorSummary: (code: string) => `sectorSummary:${code}`,
   allSectorSummaries: () => 'allSectorSummaries',
+  // 순위 데이터 캐시 키
+  ranking: (type: string, market: string) => `ranking:${type}:${market}`,
+  allRankings: (market: string) => `allRankings:${market}`,
+  leaderStocks: (market: string) => `leaderStocks:${market}`,
 };

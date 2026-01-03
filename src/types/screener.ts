@@ -27,7 +27,7 @@ export interface ScreenerResult {
 
 // 스크리너 신호
 export interface ScreenerSignal {
-  type: 'volume' | 'price' | 'high' | 'breakout';
+  type: 'volume' | 'price' | 'high' | 'breakout' | 'foreign' | 'multi_rank';
   message: string;
   strength: 'weak' | 'medium' | 'strong';
 }
@@ -49,4 +49,74 @@ export interface ScreenerResponse {
   total: number;
   filter: ScreenerFilter;
   updatedAt: number;
+}
+
+// ============================================
+// 순위 기반 주도주 발굴 타입
+// ============================================
+
+// 순위 유형
+export type RankingType = 'change' | 'turnover' | 'amount' | 'foreign';
+
+// 순위 항목
+export interface RankingItem {
+  symbol: string;
+  name: string;
+  market: 'KOSPI' | 'KOSDAQ';
+  rank: number;
+  price: number;
+  changePercent: number;
+  volume: number;
+  amount?: number; // 거래대금
+  turnoverRate?: number; // 회전율
+  foreignNetBuy?: number; // 외인 순매수
+  institutionNetBuy?: number; // 기관 순매수
+}
+
+// 순위 조회 결과
+export interface RankingResult {
+  type: RankingType;
+  market: 'KOSPI' | 'KOSDAQ' | 'ALL';
+  items: RankingItem[];
+  fetchedAt: number;
+}
+
+// 가중치 설정
+export interface RankingWeights {
+  changeWeight: number; // 등락률 가중치 (기본 25)
+  turnoverWeight: number; // 회전율 가중치 (기본 25)
+  amountWeight: number; // 거래대금 가중치 (기본 25)
+  foreignWeight: number; // 외인/기관 가중치 (기본 25)
+}
+
+// 기본 가중치
+export const DEFAULT_RANKING_WEIGHTS: RankingWeights = {
+  changeWeight: 25,
+  turnoverWeight: 25,
+  amountWeight: 25,
+  foreignWeight: 25,
+};
+
+// 주도주 결과
+export interface LeaderStock {
+  symbol: string;
+  name: string;
+  market: 'KOSPI' | 'KOSDAQ';
+
+  // 순위 정보
+  changeRank?: number; // 등락률 순위
+  turnoverRank?: number; // 회전율 순위
+  amountRank?: number; // 거래대금 순위
+  foreignRank?: number; // 외인/기관 순위
+  rankingCount: number; // 몇 개 순위에 등장했는지
+
+  // 시세 정보
+  price: number;
+  changePercent: number;
+  volume: number;
+  amount?: number;
+
+  // 점수
+  score: number;
+  signals: ScreenerSignal[];
 }

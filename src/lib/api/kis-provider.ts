@@ -1,4 +1,17 @@
-import type { OHLCV, StockInfo, Quote, Orderbook, TimeFrame, SectorCode, Sector, SectorSummary, HotStock } from '@/types';
+import type {
+  OHLCV,
+  StockInfo,
+  Quote,
+  Orderbook,
+  TimeFrame,
+  SectorCode,
+  Sector,
+  SectorSummary,
+  HotStock,
+  RankingItem,
+  RankingResult,
+  RankingType,
+} from '@/types';
 import { SECTORS, SECTOR_CODES } from '@/types/sector';
 import type { StockDataProvider } from './stock-provider';
 import { getStocksBySector as getStockSymbolsBySector, getAllMappedSymbols } from './sector-master';
@@ -8,6 +21,7 @@ import {
   getOHLCVFromCache,
   setOHLCVToCache,
   CacheKeys,
+  CACHE_TTL,
 } from './cache';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -632,6 +646,260 @@ export class KISProvider implements StockDataProvider {
     }
 
     return summaries.sort((a, b) => b.avgChangePercent - a.avgChangePercent);
+  }
+
+  // ============================================
+  // 순위 조회 API (주도주 발굴용)
+  // ============================================
+
+  /**
+   * 등락률 순위 조회
+   * TR_ID: FHPST01700000
+   * 참고: https://apiportal.koreainvestment.com/apiservice/apiservice-domestic-stock-ranking
+   * HTS [0170] 등락률 순위 화면
+   */
+  async getChangeRanking(
+    market: 'KOSPI' | 'KOSDAQ',
+    limit: number = 30
+  ): Promise<RankingResult> {
+    const cacheKey = CacheKeys.ranking('change', market);
+    const cached = getFromMemory<RankingResult>(cacheKey);
+    if (cached) return cached;
+
+    try {
+      const data = await this.request<{
+        output: Array<{
+          stck_shrn_iscd: string; // 종목코드
+          hts_kor_isnm: string; // 종목명
+          stck_prpr: string; // 현재가
+          prdy_vrss: string; // 전일대비
+          prdy_vrss_sign: string; // 전일대비 부호
+          prdy_ctrt: string; // 등락률
+          acml_vol: string; // 누적거래량
+          acml_tr_pbmn: string; // 누적거래대금
+        }>;
+      }>(
+        '/uapi/domestic-stock/v1/ranking/fluctuation',
+        {
+          fid_cond_mrkt_div_code: market === 'KOSPI' ? 'J' : 'Q',
+          fid_cond_scr_div_code: '20170', // 등락률 순위
+          fid_input_iscd: '0000', // 전체
+          fid_rank_sort_cls_code: '0', // 상승률 순
+          fid_input_cnt_1: '0',
+          fid_prc_cls_code: '0',
+          fid_input_price_1: '',
+          fid_input_price_2: '',
+          fid_vol_cnt: '',
+          fid_trgt_cls_code: '0',
+          fid_trgt_exls_cls_code: '0',
+          fid_div_cls_code: '0',
+          fid_rsfl_rate1: '',
+          fid_rsfl_rate2: '',
+        },
+        'FHPST01700000'
+      );
+
+      const items: RankingItem[] = (data.output || []).slice(0, limit).map((item, idx) => ({
+        symbol: item.stck_shrn_iscd,
+        name: item.hts_kor_isnm,
+        market,
+        rank: idx + 1,
+        price: parseInt(item.stck_prpr) || 0,
+        changePercent: parseFloat(item.prdy_ctrt) || 0,
+        volume: parseInt(item.acml_vol) || 0,
+        amount: parseInt(item.acml_tr_pbmn) || 0,
+      }));
+
+      const result: RankingResult = {
+        type: 'change',
+        market,
+        items,
+        fetchedAt: Date.now(),
+      };
+
+      setToMemory(cacheKey, result, CACHE_TTL.RANKING);
+      return result;
+    } catch (error) {
+      console.error(`[KIS] getChangeRanking(${market}) 실패:`, error);
+      return { type: 'change', market, items: [], fetchedAt: Date.now() };
+    }
+  }
+
+  /**
+   * 거래량 순위 조회 (회전율 대신 거래량 기반)
+   * TR_ID: FHPST01710000
+   * 참고: https://apiportal.koreainvestment.com/apiservice/apiservice-domestic-stock-ranking
+   */
+  async getTurnoverRanking(
+    market: 'KOSPI' | 'KOSDAQ',
+    limit: number = 30
+  ): Promise<RankingResult> {
+    const cacheKey = CacheKeys.ranking('turnover', market);
+    const cached = getFromMemory<RankingResult>(cacheKey);
+    if (cached) return cached;
+
+    try {
+      const data = await this.request<{
+        output: Array<{
+          mksc_shrn_iscd: string; // 종목코드
+          hts_kor_isnm: string; // 종목명
+          stck_prpr: string; // 현재가
+          prdy_vrss: string; // 전일대비
+          prdy_vrss_sign: string; // 전일대비 부호
+          prdy_ctrt: string; // 등락률
+          acml_vol: string; // 누적거래량
+          acml_tr_pbmn: string; // 누적거래대금
+          vol_tnrt: string; // 거래량회전율
+        }>;
+      }>(
+        '/uapi/domestic-stock/v1/quotations/volume-rank',
+        {
+          FID_COND_MRKT_DIV_CODE: market === 'KOSPI' ? 'J' : 'Q',
+          FID_COND_SCR_DIV_CODE: '20171', // 거래량순
+          FID_INPUT_ISCD: '0000', // 전체
+          FID_DIV_CLS_CODE: '0', // 전체
+          FID_BLNG_CLS_CODE: '0', // 전체
+          FID_TRGT_CLS_CODE: '111111111', // 전체
+          FID_TRGT_EXLS_CLS_CODE: '000000', // 제외없음
+          FID_INPUT_PRICE_1: '', // 가격 시작
+          FID_INPUT_PRICE_2: '', // 가격 끝
+          FID_VOL_CNT: '', // 거래량
+          FID_INPUT_DATE_1: '', // 날짜
+        },
+        'FHPST01710000'
+      );
+
+      const items: RankingItem[] = (data.output || []).slice(0, limit).map((item, idx) => ({
+        symbol: item.mksc_shrn_iscd,
+        name: item.hts_kor_isnm,
+        market,
+        rank: idx + 1,
+        price: parseInt(item.stck_prpr) || 0,
+        changePercent: parseFloat(item.prdy_ctrt) || 0,
+        volume: parseInt(item.acml_vol) || 0,
+        amount: parseInt(item.acml_tr_pbmn) || 0,
+        turnoverRate: parseFloat(item.vol_tnrt) || 0,
+      }));
+
+      const result: RankingResult = {
+        type: 'turnover',
+        market,
+        items,
+        fetchedAt: Date.now(),
+      };
+
+      setToMemory(cacheKey, result, CACHE_TTL.RANKING);
+      return result;
+    } catch (error) {
+      console.error(`[KIS] getTurnoverRanking(${market}) 실패:`, error);
+      return { type: 'turnover', market, items: [], fetchedAt: Date.now() };
+    }
+  }
+
+  /**
+   * 거래대금 순위 조회
+   * 참고: KIS OpenAPI에서 직접 제공하지 않음
+   * 대안: 거래량 순위 API의 거래대금 정보 활용
+   */
+  async getAmountRanking(
+    market: 'KOSPI' | 'KOSDAQ',
+    limit: number = 30
+  ): Promise<RankingResult> {
+    // 거래량 순위 API에서 거래대금 정보도 포함되므로, 해당 데이터를 거래대금 순으로 재정렬
+    const volumeRanking = await this.getTurnoverRanking(market, 50);
+
+    const items = [...volumeRanking.items]
+      .sort((a, b) => (b.amount || 0) - (a.amount || 0))
+      .slice(0, limit)
+      .map((item, idx) => ({ ...item, rank: idx + 1 }));
+
+    return {
+      type: 'amount',
+      market,
+      items,
+      fetchedAt: Date.now(),
+    };
+  }
+
+  /**
+   * 외인/기관 순매수 순위 조회
+   * 참고: KIS OpenAPI에서 직접 제공하지 않음 (추후 추가 예정)
+   * 현재는 빈 결과 반환
+   */
+  async getForeignInstRanking(
+    market: 'KOSPI' | 'KOSDAQ',
+    _limit: number = 30
+  ): Promise<RankingResult> {
+    // KIS OpenAPI에서 외인/기관 순매수 순위 API가 직접 제공되지 않음
+    // 추후 종목조건검색 API 또는 다른 방법으로 구현 예정
+    console.log(`[KIS] getForeignInstRanking(${market}): 현재 미지원 API`);
+    return { type: 'foreign', market, items: [], fetchedAt: Date.now() };
+  }
+
+  /**
+   * 모든 순위 데이터 통합 조회 (캐시 활용, 병렬 호출)
+   */
+  async getAllRankings(
+    market: 'KOSPI' | 'KOSDAQ' | 'ALL',
+    limit: number = 30
+  ): Promise<Map<RankingType, RankingResult>> {
+    const cacheKey = CacheKeys.allRankings(market);
+    const cached = getFromMemory<Map<RankingType, RankingResult>>(cacheKey);
+    if (cached) return cached;
+
+    const results = new Map<RankingType, RankingResult>();
+    const markets: ('KOSPI' | 'KOSDAQ')[] = market === 'ALL' ? ['KOSPI', 'KOSDAQ'] : [market];
+
+    // 각 시장별로 4개 API 병렬 호출
+    for (const mkt of markets) {
+      const [change, turnover, amount, foreign] = await Promise.all([
+        this.getChangeRanking(mkt, limit),
+        this.getTurnoverRanking(mkt, limit),
+        this.getAmountRanking(mkt, limit),
+        this.getForeignInstRanking(mkt, limit),
+      ]);
+
+      // ALL인 경우 두 시장 결과를 병합
+      if (market === 'ALL') {
+        this.mergeRankingResults(results, 'change', change);
+        this.mergeRankingResults(results, 'turnover', turnover);
+        this.mergeRankingResults(results, 'amount', amount);
+        this.mergeRankingResults(results, 'foreign', foreign);
+      } else {
+        results.set('change', change);
+        results.set('turnover', turnover);
+        results.set('amount', amount);
+        results.set('foreign', foreign);
+      }
+    }
+
+    setToMemory(cacheKey, results, CACHE_TTL.RANKING);
+    return results;
+  }
+
+  /**
+   * 두 시장의 순위 결과 병합
+   */
+  private mergeRankingResults(
+    results: Map<RankingType, RankingResult>,
+    type: RankingType,
+    newResult: RankingResult
+  ): void {
+    const existing = results.get(type);
+    if (existing) {
+      // 기존 결과에 새 항목 추가
+      existing.items.push(...newResult.items);
+      // 순위 재정렬 (등락률 기준)
+      existing.items.sort((a, b) => b.changePercent - a.changePercent);
+      existing.items = existing.items.slice(0, 30);
+      // 순위 재할당
+      existing.items.forEach((item, idx) => {
+        item.rank = idx + 1;
+      });
+      existing.market = 'ALL';
+    } else {
+      results.set(type, { ...newResult, market: 'ALL' });
+    }
   }
 }
 

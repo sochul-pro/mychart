@@ -13,7 +13,6 @@ import { cn } from '@/lib/utils';
 export default function DashboardPage() {
   const { groups, isLoading: watchlistLoading } = useWatchlist();
   const { results: topStocks, isLoading: screenerLoading } = useScreener({
-    sortBy: 'score',
     limit: 5,
   });
 
@@ -107,8 +106,8 @@ export default function DashboardPage() {
               <div className="space-y-2">
                 {topStocks.map((result, index) => (
                   <Link
-                    key={result.stock.symbol}
-                    href={`/stocks/${result.stock.symbol}`}
+                    key={result.symbol}
+                    href={`/stocks/${result.symbol}`}
                     className="flex items-center justify-between p-2 hover:bg-muted/50 rounded-lg"
                   >
                     <div className="flex items-center gap-3">
@@ -116,29 +115,29 @@ export default function DashboardPage() {
                         {index + 1}
                       </span>
                       <div>
-                        <p className="font-medium text-sm">{result.stock.name}</p>
+                        <p className="font-medium text-sm">{result.name}</p>
                         <p className="text-xs text-muted-foreground">
-                          {result.stock.symbol}
+                          {result.symbol}
                         </p>
                       </div>
                     </div>
                     <div
                       className={cn(
                         'flex items-center gap-1 text-sm',
-                        result.quote.changePercent > 0
+                        result.changePercent > 0
                           ? 'text-red-500'
-                          : result.quote.changePercent < 0
+                          : result.changePercent < 0
                           ? 'text-blue-500'
                           : ''
                       )}
                     >
-                      {result.quote.changePercent > 0 ? (
+                      {result.changePercent > 0 ? (
                         <ArrowUp className="h-3 w-3" />
-                      ) : result.quote.changePercent < 0 ? (
+                      ) : result.changePercent < 0 ? (
                         <ArrowDown className="h-3 w-3" />
                       ) : null}
-                      {result.quote.changePercent > 0 ? '+' : ''}
-                      {result.quote.changePercent.toFixed(2)}%
+                      {result.changePercent > 0 ? '+' : ''}
+                      {result.changePercent.toFixed(2)}%
                     </div>
                   </Link>
                 ))}
