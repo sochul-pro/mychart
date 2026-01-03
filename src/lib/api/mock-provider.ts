@@ -1,7 +1,9 @@
-import type { OHLCV, StockInfo, Quote, Orderbook, TimeFrame } from '@/types';
+import type { OHLCV, StockInfo, Quote, Orderbook, TimeFrame, SectorCode, Sector, SectorSummary } from '@/types';
+import { SECTORS, SECTOR_CODES } from '@/types/sector';
 import type { StockDataProvider } from './stock-provider';
 import { MOCK_STOCKS, findStockBySymbol, searchStocks as searchMockStocks } from './mock-data/stocks';
 import { generateOHLCV, getLatestPrice } from './mock-data/ohlcv';
+import { getStocksBySector as getStockSymbolsBySector } from './sector-master';
 
 /**
  * Mock 데이터 Provider
@@ -85,6 +87,99 @@ export class MockProvider implements StockDataProvider {
       bids,
       timestamp: Date.now(),
     };
+  }
+
+  /** 전체 섹터 목록 조회 */
+  async getSectors(): Promise<Sector[]> {
+    await this.delay();
+    return SECTOR_CODES.map((code) => SECTORS[code]);
+  }
+
+  /** 섹터별 종목 조회 */
+  async getStocksBySector(sectorCode: SectorCode): Promise<StockInfo[]> {
+    await this.delay();
+    const symbols = getStockSymbolsBySector(sectorCode);
+
+    // Mock 데이터에 있는 종목만 반환
+    const stocks: StockInfo[] = [];
+
+    for (const symbol of symbols) {
+      const stock = findStockBySymbol(symbol);
+      if (stock) {
+        stocks.push({
+          ...stock,
+          sector: SECTORS[sectorCode].name,
+        });
+      }
+    }
+
+    return stocks;
+  }
+
+  /** 섹터별 시세 요약 조회 */
+  async getSectorSummary(sectorCode: SectorCode): Promise<SectorSummary | null> {
+    await this.delay();
+    const stocks = await this.getStocksBySector(sectorCode);
+    if (stocks.length === 0) return null;
+
+    const quotes = await this.getQuotes(stocks.map((s) => s.symbol));
+
+    let advanceCount = 0;
+    let declineCount = 0;
+    let unchangedCount = 0;
+    let totalVolume = 0;
+    let totalChangePercent = 0;
+
+    const stockScores: { symbol: string; score: number }[] = [];
+
+    for (const quote of quotes) {
+      if (quote.changePercent > 0) advanceCount++;
+      else if (quote.changePercent < 0) declineCount++;
+      else unchangedCount++;
+
+      totalVolume += quote.volume;
+      totalChangePercent += quote.changePercent;
+
+      // 간단한 핫 종목 점수 계산 (등락률 + 거래량 가중)
+      stockScores.push({
+        symbol: quote.symbol,
+        score: quote.changePercent * 2 + Math.log10(quote.volume + 1),
+      });
+    }
+
+    // 상위 5개 핫 종목
+    const hotStocks = stockScores
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5)
+      .map((s) => s.symbol);
+
+    return {
+      sector: SECTORS[sectorCode],
+      stockCount: stocks.length,
+      avgChangePercent: quotes.length > 0 ? totalChangePercent / quotes.length : 0,
+      advanceCount,
+      declineCount,
+      unchangedCount,
+      totalVolume,
+      hotStocks,
+    };
+  }
+
+  /** 전체 섹터 시세 요약 조회 */
+  async getAllSectorSummaries(): Promise<SectorSummary[]> {
+    await this.delay();
+
+    const summaries: SectorSummary[] = [];
+
+    for (const code of SECTOR_CODES) {
+      const summary = await this.getSectorSummary(code);
+      if (summary && summary.stockCount > 0) {
+        summaries.push(summary);
+      }
+    }
+
+    // 평균 등락률 순으로 정렬
+    return summaries.sort((a, b) => b.avgChangePercent - a.avgChangePercent);
   }
 
   /** 네트워크 지연 시뮬레이션 */

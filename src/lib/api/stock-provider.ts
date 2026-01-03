@@ -1,4 +1,4 @@
-import type { OHLCV, StockInfo, Quote, Orderbook, TimeFrame } from '@/types';
+import type { OHLCV, StockInfo, Quote, Orderbook, TimeFrame, SectorCode, Sector, SectorSummary } from '@/types';
 
 /**
  * 주식 데이터 Provider 인터페이스
@@ -28,6 +28,18 @@ export interface StockDataProvider {
 
   /** 호가 조회 */
   getOrderbook(symbol: string): Promise<Orderbook | null>;
+
+  /** 전체 섹터 목록 조회 */
+  getSectors(): Promise<Sector[]>;
+
+  /** 섹터별 종목 조회 */
+  getStocksBySector(sectorCode: SectorCode): Promise<StockInfo[]>;
+
+  /** 섹터별 시세 요약 조회 */
+  getSectorSummary(sectorCode: SectorCode): Promise<SectorSummary | null>;
+
+  /** 전체 섹터 시세 요약 조회 */
+  getAllSectorSummaries(): Promise<SectorSummary[]>;
 }
 
 /** 현재 활성화된 Provider */

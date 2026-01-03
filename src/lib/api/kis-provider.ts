@@ -1,5 +1,7 @@
-import type { OHLCV, StockInfo, Quote, Orderbook, TimeFrame } from '@/types';
+import type { OHLCV, StockInfo, Quote, Orderbook, TimeFrame, SectorCode, Sector, SectorSummary } from '@/types';
+import { SECTORS, SECTOR_CODES } from '@/types/sector';
 import type { StockDataProvider } from './stock-provider';
+import { getStocksBySector as getStockSymbolsBySector } from './sector-master';
 
 /**
  * 한국투자증권 OpenAPI 설정
@@ -389,6 +391,96 @@ export class KISProvider implements StockDataProvider {
     } catch {
       return null;
     }
+  }
+
+  /**
+   * 전체 섹터 목록 조회
+   */
+  async getSectors(): Promise<Sector[]> {
+    return SECTOR_CODES.map((code) => SECTORS[code]);
+  }
+
+  /**
+   * 섹터별 종목 조회
+   * 종목 마스터 데이터 기반
+   */
+  async getStocksBySector(sectorCode: SectorCode): Promise<StockInfo[]> {
+    const symbols = getStockSymbolsBySector(sectorCode);
+
+    const stocks = await Promise.all(
+      symbols.slice(0, 20).map((symbol) => this.getStockInfo(symbol))
+    );
+
+    return stocks
+      .filter((s): s is StockInfo => s !== null)
+      .map((stock) => ({
+        ...stock,
+        sector: SECTORS[sectorCode].name,
+      }));
+  }
+
+  /**
+   * 섹터별 시세 요약 조회
+   */
+  async getSectorSummary(sectorCode: SectorCode): Promise<SectorSummary | null> {
+    const stocks = await this.getStocksBySector(sectorCode);
+    if (stocks.length === 0) return null;
+
+    const quotes = await this.getQuotes(stocks.map((s) => s.symbol));
+
+    let advanceCount = 0;
+    let declineCount = 0;
+    let unchangedCount = 0;
+    let totalVolume = 0;
+    let totalChangePercent = 0;
+
+    const stockScores: { symbol: string; score: number }[] = [];
+
+    for (const quote of quotes) {
+      if (quote.changePercent > 0) advanceCount++;
+      else if (quote.changePercent < 0) declineCount++;
+      else unchangedCount++;
+
+      totalVolume += quote.volume;
+      totalChangePercent += quote.changePercent;
+
+      stockScores.push({
+        symbol: quote.symbol,
+        score: quote.changePercent * 2 + Math.log10(quote.volume + 1),
+      });
+    }
+
+    const hotStocks = stockScores
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5)
+      .map((s) => s.symbol);
+
+    return {
+      sector: SECTORS[sectorCode],
+      stockCount: stocks.length,
+      avgChangePercent: quotes.length > 0 ? totalChangePercent / quotes.length : 0,
+      advanceCount,
+      declineCount,
+      unchangedCount,
+      totalVolume,
+      hotStocks,
+    };
+  }
+
+  /**
+   * 전체 섹터 시세 요약 조회
+   */
+  async getAllSectorSummaries(): Promise<SectorSummary[]> {
+    const summaries: SectorSummary[] = [];
+
+    for (const code of SECTOR_CODES) {
+      const summary = await this.getSectorSummary(code);
+      if (summary && summary.stockCount > 0) {
+        summaries.push(summary);
+      }
+    }
+
+    return summaries.sort((a, b) => b.avgChangePercent - a.avgChangePercent);
   }
 }
 
