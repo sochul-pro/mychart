@@ -1,7 +1,7 @@
 import type { OHLCV, StockInfo, Quote, Orderbook, TimeFrame, SectorCode, Sector, SectorSummary, HotStock } from '@/types';
 import { SECTORS, SECTOR_CODES } from '@/types/sector';
 import type { StockDataProvider } from './stock-provider';
-import { getStocksBySector as getStockSymbolsBySector } from './sector-master';
+import { getStocksBySector as getStockSymbolsBySector, getAllMappedSymbols } from './sector-master';
 
 /**
  * 한국투자증권 OpenAPI 설정
@@ -137,7 +137,8 @@ export class KISProvider implements StockDataProvider {
         market: data.output.mket_id_cd === 'STK' ? 'KOSPI' : 'KOSDAQ',
         sector: data.output.scty_grp_id_cd,
       };
-    } catch {
+    } catch (error) {
+      console.error(`[KIS] getStockInfo(${symbol}) 실패:`, error);
       return null;
     }
   }
@@ -159,20 +160,35 @@ export class KISProvider implements StockDataProvider {
 
   /**
    * 전체 종목 목록
-   * 주요 종목만 반환 (API 제한으로 전체 조회 어려움)
+   * sector-master에 매핑된 종목들 반환
    */
   async getAllStocks(): Promise<StockInfo[]> {
-    // 주요 종목 하드코딩 (실제로는 마스터 데이터 관리 필요)
-    const majorSymbols = [
-      '005930', '000660', '035420', '005380', '051910',
-      '035720', '006400', '068270', '028260', '105560',
-    ];
+    const allSymbols = getAllMappedSymbols();
+    const stocks: StockInfo[] = [];
 
-    const stocks = await Promise.all(
-      majorSymbols.map((symbol) => this.getStockInfo(symbol))
-    );
+    // Rate limiting 대응: 10개씩 배치로 처리
+    const batchSize = 10;
+    for (let i = 0; i < allSymbols.length; i += batchSize) {
+      const batch = allSymbols.slice(i, i + batchSize);
+      const batchResults = await Promise.all(
+        batch.map((symbol) => this.getStockInfo(symbol))
+      );
+      stocks.push(...batchResults.filter((s): s is StockInfo => s !== null));
 
-    return stocks.filter((s): s is StockInfo => s !== null);
+      // 배치 간 딜레이 (API rate limit 대응)
+      if (i + batchSize < allSymbols.length) {
+        await this.delay(100);
+      }
+    }
+
+    return stocks;
+  }
+
+  /**
+   * API 요청 딜레이
+   */
+  private delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**
@@ -291,19 +307,33 @@ export class KISProvider implements StockDataProvider {
         prevClose: parseInt(data.output.stck_sdpr),
         timestamp: Date.now(),
       };
-    } catch {
+    } catch (error) {
+      console.error(`[KIS] getQuote(${symbol}) 실패:`, error);
       return null;
     }
   }
 
   /**
    * 여러 종목 현재가 조회
+   * Rate limiting 대응: 배치 처리
    */
   async getQuotes(symbols: string[]): Promise<Quote[]> {
-    const quotes = await Promise.all(
-      symbols.map((symbol) => this.getQuote(symbol))
-    );
-    return quotes.filter((q): q is Quote => q !== null);
+    const quotes: Quote[] = [];
+    const batchSize = 10;
+
+    for (let i = 0; i < symbols.length; i += batchSize) {
+      const batch = symbols.slice(i, i + batchSize);
+      const batchResults = await Promise.all(
+        batch.map((symbol) => this.getQuote(symbol))
+      );
+      quotes.push(...batchResults.filter((q): q is Quote => q !== null));
+
+      if (i + batchSize < symbols.length) {
+        await this.delay(100);
+      }
+    }
+
+    return quotes;
   }
 
   /**
@@ -388,7 +418,8 @@ export class KISProvider implements StockDataProvider {
         bids,
         timestamp: Date.now(),
       };
-    } catch {
+    } catch (error) {
+      console.error(`[KIS] getOrderbook(${symbol}) 실패:`, error);
       return null;
     }
   }

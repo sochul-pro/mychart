@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getProvider } from '@/lib/api/provider-factory';
+import { stockProvider } from '@/lib/api/provider-factory';
 
 /**
  * 종목 정보 및 현재가 조회
@@ -11,11 +11,10 @@ export async function GET(
 ) {
   try {
     const { symbol } = await params;
-    const provider = getProvider();
 
     const [info, quote] = await Promise.all([
-      provider.getStockInfo(symbol),
-      provider.getQuote(symbol),
+      stockProvider.getStockInfo(symbol),
+      stockProvider.getQuote(symbol),
     ]);
 
     if (!info) {
@@ -28,7 +27,7 @@ export async function GET(
     return NextResponse.json({
       info,
       quote,
-      provider: provider.name,
+      provider: stockProvider.name,
     });
   } catch (error) {
     console.error('Stock API error:', error);

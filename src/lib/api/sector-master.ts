@@ -25,7 +25,7 @@ export const STOCK_SECTOR_MAP: Record<string, SectorCode> = {
   '247540': 'CHEM',  // 에코프로비엠
   '086520': 'CHEM',  // 에코프로
   '003670': 'CHEM',  // 포스코퓨처엠 (2차전지 소재)
-  '006800': 'CHEM',  // 미래에셋대우 → 대림산업? 수정필요
+  '006800': 'FINANCE',  // 미래에셋증권
   '010950': 'CHEM',  // S-Oil
   '011170': 'CHEM',  // 롯데케미칼
   '011780': 'CHEM',  // 금호석유
@@ -65,7 +65,7 @@ export const STOCK_SECTOR_MAP: Record<string, SectorCode> = {
   '005830': 'FINANCE', // DB손해보험
   '000810': 'FINANCE', // 삼성화재
   '032830': 'FINANCE', // 삼성생명
-  '139480': 'FINANCE', // 이마트
+  '139480': 'RETAIL',  // 이마트
 
   // 서비스업 (SERVICE) - 인터넷, 플랫폼
   '035420': 'SERVICE', // NAVER
@@ -208,4 +208,11 @@ export function getSectorStockCounts(): Record<SectorCode, number> {
  */
 export function getTotalMappedStocks(): number {
   return Object.keys(STOCK_SECTOR_MAP).length;
+}
+
+/**
+ * 매핑된 전체 종목 코드 목록
+ */
+export function getAllMappedSymbols(): string[] {
+  return Object.keys(STOCK_SECTOR_MAP);
 }

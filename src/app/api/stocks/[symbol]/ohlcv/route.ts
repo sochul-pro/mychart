@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getProvider } from '@/lib/api/provider-factory';
+import { stockProvider } from '@/lib/api/provider-factory';
 import type { TimeFrame } from '@/types';
 
 /**
@@ -17,14 +17,13 @@ export async function GET(
     const timeFrame = (searchParams.get('timeFrame') || 'D') as TimeFrame;
     const limit = parseInt(searchParams.get('limit') || '100', 10);
 
-    const provider = getProvider();
-    const ohlcv = await provider.getOHLCV(symbol, timeFrame, limit);
+    const ohlcv = await stockProvider.getOHLCV(symbol, timeFrame, limit);
 
     return NextResponse.json({
       symbol,
       timeFrame,
       data: ohlcv,
-      provider: provider.name,
+      provider: stockProvider.name,
     });
   } catch (error) {
     console.error('OHLCV API error:', error);
