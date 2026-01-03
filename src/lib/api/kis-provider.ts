@@ -2,6 +2,13 @@ import type { OHLCV, StockInfo, Quote, Orderbook, TimeFrame, SectorCode, Sector,
 import { SECTORS, SECTOR_CODES } from '@/types/sector';
 import type { StockDataProvider } from './stock-provider';
 import { getStocksBySector as getStockSymbolsBySector, getAllMappedSymbols } from './sector-master';
+import {
+  getFromMemory,
+  setToMemory,
+  getOHLCVFromCache,
+  setOHLCVToCache,
+  CacheKeys,
+} from './cache';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -175,9 +182,14 @@ export class KISProvider implements StockDataProvider {
   }
 
   /**
-   * 종목 정보 조회
+   * 종목 정보 조회 (캐시 적용)
    */
   async getStockInfo(symbol: string): Promise<StockInfo | null> {
+    // 캐시 확인
+    const cacheKey = CacheKeys.stockInfo(symbol);
+    const cached = getFromMemory<StockInfo>(cacheKey);
+    if (cached) return cached;
+
     try {
       const data = await this.request<{
         output: {
@@ -197,12 +209,16 @@ export class KISProvider implements StockDataProvider {
 
       if (!data.output) return null;
 
-      return {
+      const result: StockInfo = {
         symbol: data.output.pdno,
         name: data.output.prdt_name,
         market: data.output.mket_id_cd === 'STK' ? 'KOSPI' : 'KOSDAQ',
         sector: data.output.scty_grp_id_cd,
       };
+
+      // 캐시 저장 (종목 정보는 5분 TTL)
+      setToMemory(cacheKey, result, 5 * 60 * 1000);
+      return result;
     } catch (error) {
       console.error(`[KIS] getStockInfo(${symbol}) 실패:`, error);
       return null;
@@ -259,13 +275,19 @@ export class KISProvider implements StockDataProvider {
   }
 
   /**
-   * OHLCV 차트 데이터 조회
+   * OHLCV 차트 데이터 조회 (파일 캐시 적용)
    */
   async getOHLCV(
     symbol: string,
     timeFrame: TimeFrame,
     limit: number = 100
   ): Promise<OHLCV[]> {
+    // 파일 캐시 확인
+    const cached = getOHLCVFromCache<OHLCV[]>(symbol, timeFrame);
+    if (cached && cached.length >= limit) {
+      return cached.slice(0, limit);
+    }
+
     const periodMap: Record<TimeFrame, string> = {
       D: 'D',
       W: 'W',
@@ -291,54 +313,73 @@ export class KISProvider implements StockDataProvider {
     const formatDate = (d: Date) =>
       d.toISOString().slice(0, 10).replace(/-/g, '');
 
-    const data = await this.request<{
-      output2: Array<{
-        stck_bsop_date: string;
-        stck_oprc: string;
-        stck_hgpr: string;
-        stck_lwpr: string;
-        stck_clpr: string;
-        acml_vol: string;
-      }>;
-    }>(
-      '/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice',
-      {
-        FID_COND_MRKT_DIV_CODE: 'J',
-        FID_INPUT_ISCD: symbol,
-        FID_INPUT_DATE_1: formatDate(startDate),
-        FID_INPUT_DATE_2: formatDate(endDate),
-        FID_PERIOD_DIV_CODE: periodMap[timeFrame],
-        FID_ORG_ADJ_PRC: '0',
-      },
-      'FHKST03010100'
-    );
+    try {
+      const data = await this.request<{
+        output2: Array<{
+          stck_bsop_date: string;
+          stck_oprc: string;
+          stck_hgpr: string;
+          stck_lwpr: string;
+          stck_clpr: string;
+          acml_vol: string;
+        }>;
+      }>(
+        '/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice',
+        {
+          FID_COND_MRKT_DIV_CODE: 'J',
+          FID_INPUT_ISCD: symbol,
+          FID_INPUT_DATE_1: formatDate(startDate),
+          FID_INPUT_DATE_2: formatDate(endDate),
+          FID_PERIOD_DIV_CODE: periodMap[timeFrame],
+          FID_ORG_ADJ_PRC: '0',
+        },
+        'FHKST03010100'
+      );
 
-    return (data.output2 || [])
-      .map((item) => {
-        const dateStr = item.stck_bsop_date;
-        const date = new Date(
-          parseInt(dateStr.slice(0, 4)),
-          parseInt(dateStr.slice(4, 6)) - 1,
-          parseInt(dateStr.slice(6, 8))
-        );
+      const result = (data.output2 || [])
+        .map((item) => {
+          const dateStr = item.stck_bsop_date;
+          const date = new Date(
+            parseInt(dateStr.slice(0, 4)),
+            parseInt(dateStr.slice(4, 6)) - 1,
+            parseInt(dateStr.slice(6, 8))
+          );
 
-        return {
-          time: date.getTime(),
-          open: parseInt(item.stck_oprc),
-          high: parseInt(item.stck_hgpr),
-          low: parseInt(item.stck_lwpr),
-          close: parseInt(item.stck_clpr),
-          volume: parseInt(item.acml_vol),
-        };
-      })
-      .reverse()
-      .slice(0, limit);
+          return {
+            time: date.getTime(),
+            open: parseInt(item.stck_oprc),
+            high: parseInt(item.stck_hgpr),
+            low: parseInt(item.stck_lwpr),
+            close: parseInt(item.stck_clpr),
+            volume: parseInt(item.acml_vol),
+          };
+        })
+        .reverse()
+        .slice(0, limit);
+
+      // 파일 캐시 저장
+      if (result.length > 0) {
+        setOHLCVToCache(symbol, timeFrame, result);
+      }
+
+      return result;
+    } catch (error) {
+      console.error(`[KIS] getOHLCV(${symbol}) 실패:`, error);
+      // 캐시된 데이터가 있으면 반환
+      if (cached) return cached.slice(0, limit);
+      return [];
+    }
   }
 
   /**
-   * 현재가 조회
+   * 현재가 조회 (캐시 적용)
    */
   async getQuote(symbol: string): Promise<Quote | null> {
+    // 캐시 확인 (30초 TTL)
+    const cacheKey = CacheKeys.quote(symbol);
+    const cached = getFromMemory<Quote>(cacheKey);
+    if (cached) return cached;
+
     try {
       const data = await this.request<{
         output: {
@@ -362,7 +403,7 @@ export class KISProvider implements StockDataProvider {
 
       if (!data.output) return null;
 
-      return {
+      const result: Quote = {
         symbol,
         price: parseInt(data.output.stck_prpr),
         change: parseInt(data.output.prdy_vrss),
@@ -374,6 +415,10 @@ export class KISProvider implements StockDataProvider {
         prevClose: parseInt(data.output.stck_sdpr),
         timestamp: Date.now(),
       };
+
+      // 캐시 저장 (30초 TTL)
+      setToMemory(cacheKey, result, 30 * 1000);
+      return result;
     } catch (error) {
       console.error(`[KIS] getQuote(${symbol}) 실패:`, error);
       return null;

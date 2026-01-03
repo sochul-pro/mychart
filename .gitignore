@@ -35,6 +35,9 @@ yarn-error.log*
 # KIS API token cache
 .kis-token.json
 
+# API data cache
+.cache/
+
 # vercel
 .vercel
 
