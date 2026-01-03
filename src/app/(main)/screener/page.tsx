@@ -5,7 +5,9 @@ import { RefreshCw, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScreenerTable, ScreenerFilters } from '@/components/screener';
+import { SectorHotStocks } from '@/components/sectors';
 import { useScreener } from '@/hooks/useScreener';
+import { useSectorHotStocksData } from '@/hooks/useSectorSummary';
 import type { ScreenerFilter } from '@/types';
 
 export default function ScreenerPage() {
@@ -19,6 +21,12 @@ export default function ScreenerPage() {
     sortBy,
     limit: 50,
   });
+
+  const {
+    summaries: sectorSummaries,
+    stockQuotes: sectorStockQuotes,
+    isLoading: isSectorLoading,
+  } = useSectorHotStocksData();
 
   return (
     <div className="container mx-auto py-4 sm:py-6 px-4">
@@ -37,6 +45,16 @@ export default function ScreenerPage() {
           )}
           새로고침
         </Button>
+      </div>
+
+      {/* 섹터별 핫 종목 */}
+      <div className="mb-6">
+        <SectorHotStocks
+          summaries={sectorSummaries}
+          stockQuotes={sectorStockQuotes}
+          isLoading={isSectorLoading}
+          maxSectors={6}
+        />
       </div>
 
       <div className="grid gap-4 sm:gap-6 lg:grid-cols-[280px_1fr]">
