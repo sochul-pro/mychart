@@ -166,7 +166,9 @@ export class KISProvider implements StockDataProvider {
     });
 
     if (!response.ok) {
-      throw new Error(`KIS API 요청 실패: ${response.status}`);
+      const errorBody = await response.text();
+      console.error(`[KIS] API 요청 실패 (${path}):`, response.status, errorBody);
+      throw new Error(`KIS API 요청 실패: ${response.status} - ${errorBody}`);
     }
 
     return response.json();
@@ -225,13 +227,14 @@ export class KISProvider implements StockDataProvider {
   /**
    * 전체 종목 목록
    * sector-master에 매핑된 종목들 반환
+   * KIS API 제한: 초당 20건 → 5개씩 배치, 250ms 딜레이
    */
   async getAllStocks(): Promise<StockInfo[]> {
     const allSymbols = getAllMappedSymbols();
     const stocks: StockInfo[] = [];
 
-    // Rate limiting 대응: 10개씩 배치로 처리
-    const batchSize = 10;
+    // Rate limiting 대응: 5개씩 배치, 250ms 딜레이
+    const batchSize = 5;
     for (let i = 0; i < allSymbols.length; i += batchSize) {
       const batch = allSymbols.slice(i, i + batchSize);
       const batchResults = await Promise.all(
@@ -241,7 +244,7 @@ export class KISProvider implements StockDataProvider {
 
       // 배치 간 딜레이 (API rate limit 대응)
       if (i + batchSize < allSymbols.length) {
-        await this.delay(100);
+        await this.delay(250);
       }
     }
 

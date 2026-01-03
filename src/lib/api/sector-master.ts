@@ -15,8 +15,8 @@ export const STOCK_SECTOR_MAP: Record<string, SectorCode> = {
   '006400': 'ELEC',  // 삼성SDI
   '066570': 'ELEC',  // LG전자
   '009150': 'ELEC',  // 삼성전기
-  '034730': 'ELEC',  // SK스퀘어
-  '402340': 'ELEC',  // SK스퀘어 (가상 중복)
+  '034730': 'CHEM',  // SK
+  '402340': 'ELEC',  // SK스퀘어
   '000990': 'ELEC',  // DB하이텍
   '042700': 'ELEC',  // 한미반도체
 
