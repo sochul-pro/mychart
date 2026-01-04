@@ -3,8 +3,8 @@ import { stockProvider } from '@/lib/api/provider-factory';
 import { KISProvider } from '@/lib/api/kis-provider';
 import { detectLeaderStocks, filterLeaderStocks } from '@/lib/screener';
 import { getFromMemory, setToMemory, CacheKeys, CACHE_TTL } from '@/lib/api/cache';
-import type { ScreenerFilter, RankingWeights, LeaderStock } from '@/types';
-import { DEFAULT_RANKING_WEIGHTS as defaultWeights } from '@/types/screener';
+import type { ScreenerFilter, RankingWeights, LeaderStock, SelectedRankings } from '@/types';
+import { DEFAULT_RANKING_WEIGHTS as defaultWeights, DEFAULT_SELECTED_RANKINGS } from '@/types/screener';
 
 // 주도주 스크리너 응답 타입
 interface LeaderScreenerResponse {
@@ -30,7 +30,19 @@ export async function GET(request: NextRequest) {
     turnoverWeight: parseFloat(searchParams.get('turnoverWeight') || '') || defaultWeights.turnoverWeight,
     amountWeight: parseFloat(searchParams.get('amountWeight') || '') || defaultWeights.amountWeight,
     foreignWeight: parseFloat(searchParams.get('foreignWeight') || '') || defaultWeights.foreignWeight,
+    popularityWeight: parseFloat(searchParams.get('popularityWeight') || '') || defaultWeights.popularityWeight,
   };
+
+  // 선택된 순위 조건 파싱
+  let selectedRankings: SelectedRankings = DEFAULT_SELECTED_RANKINGS;
+  try {
+    const selectedRankingsParam = searchParams.get('selectedRankings');
+    if (selectedRankingsParam) {
+      selectedRankings = { ...DEFAULT_SELECTED_RANKINGS, ...JSON.parse(selectedRankingsParam) };
+    }
+  } catch {
+    // JSON 파싱 실패 시 기본값 사용
+  }
 
   // 추가 필터 옵션
   const minRankingCount = parseInt(searchParams.get('minRankingCount') || '0', 10);
@@ -61,22 +73,23 @@ export async function GET(request: NextRequest) {
     let leaders = getFromMemory<LeaderStock[]>(cacheKey);
 
     if (!leaders) {
-      // 순위 데이터 조회 (4개 API 병렬 호출)
+      // 순위 데이터 조회 (5개 API 병렬 호출)
       const rankings = await kisProvider.getAllRankings(
         marketParam as 'KOSPI' | 'KOSDAQ' | 'ALL',
         30
       );
 
-      // 주도주 발굴
-      leaders = detectLeaderStocks(rankings, weights);
+      // 주도주 발굴 (선택된 순위 조건 적용)
+      leaders = detectLeaderStocks(rankings, weights, selectedRankings);
 
       // 캐시 저장
       setToMemory(cacheKey, leaders, CACHE_TTL.LEADER_STOCKS);
     } else {
-      // 캐시된 데이터에 가중치 재적용 (가중치가 변경된 경우)
+      // 캐시된 데이터에 가중치 및 선택된 순위 조건 재적용
       leaders = leaders.map((stock) => ({
         ...stock,
-        score: calculateScoreWithWeights(stock, weights),
+        score: calculateScoreWithWeights(stock, weights, selectedRankings),
+        rankingCount: calculateRankingCount(stock, selectedRankings),
       })).sort((a, b) => b.score - a.score);
     }
 
@@ -110,25 +123,44 @@ export async function GET(request: NextRequest) {
 
 /**
  * 가중치를 적용한 점수 재계산
- * 공식: 항목별 점수의 합
+ * 공식: 항목별 점수의 합 (선택된 순위 조건만 계산)
  * 항목별 점수 = (50 - 순위) * 가중치
  */
 function calculateScoreWithWeights(
   stock: LeaderStock,
-  weights: RankingWeights
+  weights: RankingWeights,
+  selectedRankings: SelectedRankings
 ): number {
   const RANK_BASE = 50;
 
-  const calcScore = (rank: number | undefined, weight: number) => {
+  const calcScore = (rank: number | undefined, weight: number, isSelected: boolean) => {
+    if (!isSelected) return 0;
     if (!rank || rank <= 0 || rank >= RANK_BASE) return 0;
     return (RANK_BASE - rank) * weight;
   };
 
-  const changeScore = calcScore(stock.changeRank, weights.changeWeight);
-  const turnoverScore = calcScore(stock.turnoverRank, weights.turnoverWeight);
-  const amountScore = calcScore(stock.amountRank, weights.amountWeight);
-  const foreignScore = calcScore(stock.foreignRank, weights.foreignWeight);
+  const changeScore = calcScore(stock.changeRank, weights.changeWeight, selectedRankings.change);
+  const turnoverScore = calcScore(stock.turnoverRank, weights.turnoverWeight, selectedRankings.turnover);
+  const amountScore = calcScore(stock.amountRank, weights.amountWeight, selectedRankings.amount);
+  const foreignScore = calcScore(stock.foreignRank, weights.foreignWeight, selectedRankings.foreign);
+  const popularityScore = calcScore(stock.popularityRank, weights.popularityWeight, selectedRankings.popularity);
 
-  // 최종 점수 = 항목별 점수의 합
-  return changeScore + turnoverScore + amountScore + foreignScore;
+  // 최종 점수 = 선택된 항목별 점수의 합
+  return changeScore + turnoverScore + amountScore + foreignScore + popularityScore;
+}
+
+/**
+ * 선택된 순위 조건 기준 rankingCount 재계산
+ */
+function calculateRankingCount(
+  stock: LeaderStock,
+  selectedRankings: SelectedRankings
+): number {
+  let count = 0;
+  if (selectedRankings.change && stock.changeRank) count++;
+  if (selectedRankings.turnover && stock.turnoverRank) count++;
+  if (selectedRankings.amount && stock.amountRank) count++;
+  if (selectedRankings.foreign && stock.foreignRank) count++;
+  if (selectedRankings.popularity && stock.popularityRank) count++;
+  return count;
 }

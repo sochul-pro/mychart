@@ -1,6 +1,6 @@
 /**
  * 주도주 발굴 로직
- * 4개 순위 API 데이터를 교집합하여 주도주 선정
+ * 5개 순위 API 데이터를 교집합하여 주도주 선정
  */
 
 import type {
@@ -8,10 +8,11 @@ import type {
   RankingResult,
   RankingType,
   RankingWeights,
+  SelectedRankings,
   LeaderStock,
   ScreenerSignal,
 } from '@/types';
-import { DEFAULT_RANKING_WEIGHTS as defaultWeights } from '@/types/screener';
+import { DEFAULT_RANKING_WEIGHTS as defaultWeights, DEFAULT_SELECTED_RANKINGS } from '@/types/screener';
 
 // 순위 기준값 (50위까지 점수 부여)
 const RANK_BASE = 50;
@@ -92,30 +93,64 @@ function updateRankInfo(
         stock.rankingCount++;
       }
       break;
+    case 'popularity':
+      if (!stock.popularityRank) {
+        stock.popularityRank = item.rank;
+        stock.rankingCount++;
+      }
+      break;
   }
 }
 
 /**
  * 종합 점수 계산
- * 공식: 항목별 점수의 합
+ * 공식: 항목별 점수의 합 (선택된 순위 조건만 계산)
  * 항목별 점수 = (50 - 순위) * 가중치
  *
- * 예시 (기본 가중치 25):
- * - 등락률 1위, 거래량 5위, 거래대금 10위, 외인 미포함
- * - (50-1)*25 + (50-5)*25 + (50-10)*25 + 0 = 1225 + 1125 + 1000 = 3350점
+ * 예시 (기본 가중치 20):
+ * - 등락률 1위, 거래량 5위, 거래대금 10위, 인기도 3위, 외인 미포함
+ * - (50-1)*20 + (50-5)*20 + (50-10)*20 + (50-3)*20 + 0 = 980 + 900 + 800 + 940 = 3620점
  */
 export function calculateTotalScore(
   stock: LeaderStock,
-  weights: RankingWeights = defaultWeights
+  weights: RankingWeights = defaultWeights,
+  selectedRankings: SelectedRankings = DEFAULT_SELECTED_RANKINGS
 ): number {
-  // 개별 순위 점수
-  const changeScore = calculateRankScore(stock.changeRank, weights.changeWeight);
-  const turnoverScore = calculateRankScore(stock.turnoverRank, weights.turnoverWeight);
-  const amountScore = calculateRankScore(stock.amountRank, weights.amountWeight);
-  const foreignScore = calculateRankScore(stock.foreignRank, weights.foreignWeight);
+  // 개별 순위 점수 (선택된 순위만 계산)
+  const changeScore = selectedRankings.change
+    ? calculateRankScore(stock.changeRank, weights.changeWeight)
+    : 0;
+  const turnoverScore = selectedRankings.turnover
+    ? calculateRankScore(stock.turnoverRank, weights.turnoverWeight)
+    : 0;
+  const amountScore = selectedRankings.amount
+    ? calculateRankScore(stock.amountRank, weights.amountWeight)
+    : 0;
+  const foreignScore = selectedRankings.foreign
+    ? calculateRankScore(stock.foreignRank, weights.foreignWeight)
+    : 0;
+  const popularityScore = selectedRankings.popularity
+    ? calculateRankScore(stock.popularityRank, weights.popularityWeight)
+    : 0;
 
-  // 최종 점수 = 항목별 점수의 합
-  return changeScore + turnoverScore + amountScore + foreignScore;
+  // 최종 점수 = 선택된 항목별 점수의 합
+  return changeScore + turnoverScore + amountScore + foreignScore + popularityScore;
+}
+
+/**
+ * 선택된 순위 조건 기준 rankingCount 계산
+ */
+export function calculateRankingCount(
+  stock: LeaderStock,
+  selectedRankings: SelectedRankings = DEFAULT_SELECTED_RANKINGS
+): number {
+  let count = 0;
+  if (selectedRankings.change && stock.changeRank) count++;
+  if (selectedRankings.turnover && stock.turnoverRank) count++;
+  if (selectedRankings.amount && stock.amountRank) count++;
+  if (selectedRankings.foreign && stock.foreignRank) count++;
+  if (selectedRankings.popularity && stock.popularityRank) count++;
+  return count;
 }
 
 /**
@@ -124,8 +159,14 @@ export function calculateTotalScore(
 export function generateLeaderSignals(stock: LeaderStock): ScreenerSignal[] {
   const signals: ScreenerSignal[] = [];
 
-  // 다중 순위 신호 (가장 강력한 신호)
-  if (stock.rankingCount >= 4) {
+  // 다중 순위 신호 (가장 강력한 신호) - 5개 순위 기준
+  if (stock.rankingCount >= 5) {
+    signals.push({
+      type: 'multi_rank',
+      message: '5개 순위 상위',
+      strength: 'strong',
+    });
+  } else if (stock.rankingCount >= 4) {
     signals.push({
       type: 'multi_rank',
       message: '4개 순위 상위',
@@ -172,22 +213,35 @@ export function generateLeaderSignals(stock: LeaderStock): ScreenerSignal[] {
     });
   }
 
+  // 인기도 순위 신호 (회전율 기반)
+  if (stock.popularityRank && stock.popularityRank <= 10) {
+    signals.push({
+      type: 'volume', // 인기도 신호도 volume 타입으로 표시
+      message: `인기도 ${stock.popularityRank}위`,
+      strength: stock.popularityRank <= 5 ? 'strong' : 'medium',
+    });
+  }
+
   return signals;
 }
 
 /**
  * 주도주 발굴 메인 함수
- * 4개 순위 데이터를 교집합하여 점수 기반으로 주도주 선정
+ * 5개 순위 데이터를 교집합하여 점수 기반으로 주도주 선정
  */
 export function detectLeaderStocks(
   rankings: Map<RankingType, RankingResult>,
-  weights: RankingWeights = defaultWeights
+  weights: RankingWeights = defaultWeights,
+  selectedRankings: SelectedRankings = DEFAULT_SELECTED_RANKINGS
 ): LeaderStock[] {
   // 종목별 정보 병합
   const stockMap = new Map<string, LeaderStock>();
 
-  // 각 순위 데이터 처리
+  // 선택된 순위 데이터만 처리
   for (const [type, result] of rankings) {
+    // 선택되지 않은 순위는 건너뜀
+    if (!selectedRankings[type]) continue;
+
     for (const item of result.items) {
       let stock = stockMap.get(item.symbol);
       if (!stock) {
@@ -201,10 +255,14 @@ export function detectLeaderStocks(
   // 점수 계산 및 신호 생성
   const leaders = Array.from(stockMap.values())
     .map((stock) => {
-      stock.score = calculateTotalScore(stock, weights);
+      // 선택된 순위 기준으로 rankingCount 재계산
+      stock.rankingCount = calculateRankingCount(stock, selectedRankings);
+      stock.score = calculateTotalScore(stock, weights, selectedRankings);
       stock.signals = generateLeaderSignals(stock);
       return stock;
     })
+    // 점수가 0 이상인 것만 필터링 (선택된 순위에 하나도 등장하지 않으면 제외)
+    .filter((stock) => stock.score > 0)
     // 점수 기준 내림차순 정렬
     .sort((a, b) => {
       // 1차: 점수

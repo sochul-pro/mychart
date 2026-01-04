@@ -1,13 +1,22 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
+import { ChevronDown, ChevronUp, RotateCcw, TrendingUp, RefreshCw, Banknote, Users, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
-import type { ScreenerFilter, RankingWeights } from '@/types';
-import { DEFAULT_RANKING_WEIGHTS } from '@/types/screener';
+import type { ScreenerFilter, RankingWeights, SelectedRankings, RankingType } from '@/types';
+import { DEFAULT_RANKING_WEIGHTS, DEFAULT_SELECTED_RANKINGS, RANKING_LABELS } from '@/types/screener';
+
+// 순위 타입별 아이콘
+const RANKING_ICONS: Record<RankingType, React.ReactNode> = {
+  change: <TrendingUp className="h-3 w-3" />,
+  turnover: <RefreshCw className="h-3 w-3" />,
+  amount: <Banknote className="h-3 w-3" />,
+  foreign: <Users className="h-3 w-3" />,
+  popularity: <Eye className="h-3 w-3" />,
+};
 
 interface ScreenerFiltersProps {
   filter: ScreenerFilter;
@@ -16,6 +25,9 @@ interface ScreenerFiltersProps {
   onWeightsChange: (weights: RankingWeights) => void;
   minRankingCount: number;
   onMinRankingCountChange: (count: number) => void;
+  selectedRankings: SelectedRankings;
+  onSelectedRankingsChange: (selectedRankings: SelectedRankings) => void;
+  onReset?: () => void;
 }
 
 export function ScreenerFilters({
@@ -25,6 +37,9 @@ export function ScreenerFilters({
   onWeightsChange,
   minRankingCount,
   onMinRankingCountChange,
+  selectedRankings,
+  onSelectedRankingsChange,
+  onReset,
 }: ScreenerFiltersProps) {
   const [showWeights, setShowWeights] = useState(false);
 
@@ -40,7 +55,8 @@ export function ScreenerFilters({
     weights.changeWeight +
     weights.turnoverWeight +
     weights.amountWeight +
-    weights.foreignWeight;
+    weights.foreignWeight +
+    weights.popularityWeight;
 
   return (
     <div className="space-y-4">
@@ -61,11 +77,40 @@ export function ScreenerFilters({
         </div>
       </div>
 
+      {/* 순위 조건 선택 */}
+      <div className="space-y-2">
+        <Label className="text-sm text-muted-foreground">순위 조건 선택</Label>
+        <div className="flex flex-wrap gap-2">
+          {(Object.keys(RANKING_LABELS) as RankingType[]).map((type) => {
+            const isSelected = selectedRankings[type];
+            return (
+              <Badge
+                key={type}
+                variant={isSelected ? 'default' : 'outline'}
+                className="cursor-pointer gap-1 select-none"
+                onClick={() =>
+                  onSelectedRankingsChange({
+                    ...selectedRankings,
+                    [type]: !isSelected,
+                  })
+                }
+              >
+                {RANKING_ICONS[type]}
+                {RANKING_LABELS[type]}
+              </Badge>
+            );
+          })}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          선택한 순위 조건만 점수 계산에 반영됩니다
+        </p>
+      </div>
+
       {/* 순위 필터 */}
       <div className="space-y-2">
         <Label className="text-sm text-muted-foreground">순위 조건</Label>
         <div className="flex flex-wrap gap-2">
-          {[0, 2, 3, 4].map((count) => (
+          {[0, 2, 3, 4, 5].map((count) => (
             <Badge
               key={count}
               variant={minRankingCount === count ? 'default' : 'outline'}
@@ -77,7 +122,7 @@ export function ScreenerFilters({
           ))}
         </div>
         <p className="text-xs text-muted-foreground">
-          여러 순위에 동시 등장한 종목 필터링
+          여러 순위에 동시 등장한 종목 필터링 (5개 순위 기준)
         </p>
       </div>
 
@@ -157,6 +202,22 @@ export function ScreenerFilters({
               />
             </div>
 
+            {/* 인기도 (회전율 기반) */}
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>인기도</span>
+                <span className="font-medium">{weights.popularityWeight}</span>
+              </div>
+              <Slider
+                value={[weights.popularityWeight]}
+                onValueChange={([v]) => handleWeightChange('popularityWeight', v)}
+                min={0}
+                max={100}
+                step={5}
+              />
+              <p className="text-xs text-muted-foreground">회전율 기준</p>
+            </div>
+
             {/* 합계 표시 */}
             <div className="flex justify-between pt-2 border-t text-sm">
               <span>합계</span>
@@ -187,13 +248,23 @@ export function ScreenerFilters({
         size="sm"
         className="w-full"
         onClick={() => {
-          onFilterChange({ market: 'all' });
-          onWeightsChange(DEFAULT_RANKING_WEIGHTS);
-          onMinRankingCountChange(0);
+          if (onReset) {
+            onReset();
+          } else {
+            onFilterChange({ market: 'all' });
+            onWeightsChange(DEFAULT_RANKING_WEIGHTS);
+            onMinRankingCountChange(0);
+            onSelectedRankingsChange(DEFAULT_SELECTED_RANKINGS);
+          }
         }}
       >
         전체 초기화
       </Button>
+
+      {/* 저장 안내 문구 */}
+      <p className="text-xs text-muted-foreground text-center mt-2">
+        설정은 자동으로 저장됩니다
+      </p>
     </div>
   );
 }

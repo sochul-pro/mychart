@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import type { ScreenerFilter, RankingWeights, LeaderStock } from '@/types';
-import { DEFAULT_RANKING_WEIGHTS } from '@/types/screener';
+import type { ScreenerFilter, RankingWeights, LeaderStock, SelectedRankings } from '@/types';
+import { DEFAULT_RANKING_WEIGHTS, DEFAULT_SELECTED_RANKINGS } from '@/types/screener';
 
 // 스크리너 응답 타입
 interface LeaderScreenerResponse {
@@ -15,6 +15,7 @@ interface LeaderScreenerResponse {
 interface UseScreenerOptions {
   filter?: ScreenerFilter;
   weights?: RankingWeights;
+  selectedRankings?: SelectedRankings;
   minRankingCount?: number;
   minScore?: number;
   limit?: number;
@@ -35,6 +36,11 @@ async function fetchScreener(options: UseScreenerOptions): Promise<LeaderScreene
   params.set('turnoverWeight', String(weights.turnoverWeight));
   params.set('amountWeight', String(weights.amountWeight));
   params.set('foreignWeight', String(weights.foreignWeight));
+  params.set('popularityWeight', String(weights.popularityWeight));
+
+  // 선택된 순위 조건 파라미터
+  const selectedRankings = options.selectedRankings || DEFAULT_SELECTED_RANKINGS;
+  params.set('selectedRankings', JSON.stringify(selectedRankings));
 
   // 추가 필터
   if (options.minRankingCount) {

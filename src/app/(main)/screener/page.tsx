@@ -1,26 +1,34 @@
 'use client';
 
-import { useState } from 'react';
 import { RefreshCw, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScreenerTable, ScreenerFilters } from '@/components/screener';
 import { useScreener } from '@/hooks/useScreener';
-import type { ScreenerFilter, RankingWeights } from '@/types';
-import { DEFAULT_RANKING_WEIGHTS } from '@/types/screener';
+import { useScreenerSettings } from '@/hooks/useScreenerSettings';
 
 export default function ScreenerPage() {
-  const [filter, setFilter] = useState<ScreenerFilter>({
-    market: 'all',
-  });
-  const [weights, setWeights] = useState<RankingWeights>(DEFAULT_RANKING_WEIGHTS);
-  const [minRankingCount, setMinRankingCount] = useState(0);
+  const {
+    weights,
+    filter,
+    minRankingCount,
+    selectedRankings,
+    isLoaded,
+    lastSaved,
+    updateWeights,
+    updateFilter,
+    updateMinRankingCount,
+    updateSelectedRankings,
+    resetToDefault,
+  } = useScreenerSettings();
 
   const { results, total, isLoading, refetch } = useScreener({
     filter,
     weights,
     minRankingCount,
+    selectedRankings,
     limit: 50,
+    enabled: isLoaded, // 설정 로드 후 데이터 조회
   });
 
   return (
@@ -29,7 +37,7 @@ export default function ScreenerPage() {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold">주도주 스크리너</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            4가지 순위(등락률, 회전율, 거래대금, 외인/기관)의 교집합으로 주도주를 발굴합니다
+            5가지 순위(등락률, 회전율, 거래대금, 외인/기관, 조회상위)의 교집합으로 주도주를 발굴합니다
           </p>
         </div>
         <Button
@@ -50,17 +58,25 @@ export default function ScreenerPage() {
       <div className="grid gap-4 sm:gap-6 lg:grid-cols-[280px_1fr]">
         {/* 필터 사이드바 */}
         <Card className="h-fit">
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-lg">필터</CardTitle>
+            {lastSaved && (
+              <span className="text-xs text-muted-foreground">
+                저장됨
+              </span>
+            )}
           </CardHeader>
           <CardContent>
             <ScreenerFilters
               filter={filter}
-              onFilterChange={setFilter}
+              onFilterChange={updateFilter}
               weights={weights}
-              onWeightsChange={setWeights}
+              onWeightsChange={updateWeights}
               minRankingCount={minRankingCount}
-              onMinRankingCountChange={setMinRankingCount}
+              onMinRankingCountChange={updateMinRankingCount}
+              selectedRankings={selectedRankings}
+              onSelectedRankingsChange={updateSelectedRankings}
+              onReset={resetToDefault}
             />
           </CardContent>
         </Card>

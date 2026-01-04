@@ -2,7 +2,7 @@
 
 import { memo, useMemo } from 'react';
 import Link from 'next/link';
-import { ArrowUp, ArrowDown, TrendingUp, Users, Banknote, RefreshCw } from 'lucide-react';
+import { ArrowUp, ArrowDown, TrendingUp, Users, Banknote, RefreshCw, Eye } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type { LeaderStock } from '@/types';
@@ -144,6 +144,12 @@ const RankingBadges = memo(function RankingBadges({
           {result.foreignRank}
         </Badge>
       )}
+      {result.popularityRank && (
+        <Badge variant="outline" className="text-xs" title="인기도 순위 (회전율 기준)">
+          <Eye className="h-3 w-3 mr-1" />
+          {result.popularityRank}
+        </Badge>
+      )}
     </div>
   );
 });
@@ -160,6 +166,13 @@ const SignalBadges = memo(function SignalBadges({
 }) {
   // 순위 개수 배지
   const rankBadge = useMemo(() => {
+    if (rankingCount >= 5) {
+      return (
+        <Badge className="text-xs bg-purple-500">
+          5개 순위
+        </Badge>
+      );
+    }
     if (rankingCount >= 4) {
       return (
         <Badge className="text-xs bg-green-500">

@@ -493,21 +493,22 @@ export class KISProvider implements StockDataProvider {
 
   /**
    * 여러 종목 현재가 조회
-   * Rate limiting 대응: 배치 처리
+   * Rate limiting 대응: 순차 처리 + 딜레이
+   * KIS API 제한: 실전 초당 20회, 모의 2회
    */
   async getQuotes(symbols: string[]): Promise<Quote[]> {
     const quotes: Quote[] = [];
-    const batchSize = 10;
 
-    for (let i = 0; i < symbols.length; i += batchSize) {
-      const batch = symbols.slice(i, i + batchSize);
-      const batchResults = await Promise.all(
-        batch.map((symbol) => this.getQuote(symbol))
-      );
-      quotes.push(...batchResults.filter((q): q is Quote => q !== null));
+    // 순차 처리 (Rate Limit 대응)
+    for (let i = 0; i < symbols.length; i++) {
+      const quote = await this.getQuote(symbols[i]);
+      if (quote) {
+        quotes.push(quote);
+      }
 
-      if (i + batchSize < symbols.length) {
-        await this.delay(100);
+      // 다음 요청 전 딜레이 (초당 10회 이하로 제한)
+      if (i < symbols.length - 1) {
+        await this.delay(120);
       }
     }
 
@@ -889,6 +890,222 @@ export class KISProvider implements StockDataProvider {
   }
 
   /**
+   * HTS 조회상위20종목 API 호출
+   * TR_ID: HHMCM000100C0
+   * 참고: 한국투자 HTS(eFriend Plus) > [0158] 조회종목상위 화면
+   *
+   * 응답: 시장구분(mrkt_div_cls_code), 종목코드(mksc_shrn_iscd)만 반환
+   * 종목명, 현재가 등은 별도 API 호출 필요
+   */
+  async getViewRanking(limit: number = 20): Promise<RankingResult> {
+    const cacheKey = CacheKeys.ranking('popularity', 'ALL');
+    const cached = getFromMemory<RankingResult>(cacheKey);
+    if (cached) return cached;
+
+    try {
+      console.log('[KIS] HTS 조회상위 API 호출...');
+
+      // HTS 조회상위 API 호출 (종목코드 목록만 반환)
+      const data = await this.request<{
+        rt_cd: string;
+        msg_cd: string;
+        msg1: string;
+        output1: Array<{
+          mrkt_div_cls_code: string; // 시장구분 (J: 코스피, Q: 코스닥)
+          mksc_shrn_iscd: string; // 종목코드
+        }>;
+      }>(
+        '/uapi/domestic-stock/v1/ranking/hts-top-view',
+        {},
+        'HHMCM000100C0'
+      );
+
+      if (data.rt_cd !== '0') {
+        console.error('[KIS] HTS 조회상위 API 오류:', data.msg1);
+        throw new Error(data.msg1);
+      }
+
+      const stockCodes = (data.output1 || []).slice(0, limit);
+      console.log(`[KIS] HTS 조회상위 ${stockCodes.length}개 종목 조회됨`);
+
+      if (stockCodes.length === 0) {
+        return { type: 'popularity', market: 'KOSPI', items: [], fetchedAt: Date.now() };
+      }
+
+      // 각 종목의 시세 정보 조회 (배치 처리)
+      const symbols = stockCodes.map((s) => s.mksc_shrn_iscd);
+      const quotes = await this.getQuotes(symbols);
+
+      // 종목코드 -> 시장구분 매핑
+      const marketMap = new Map(
+        stockCodes.map((s) => [s.mksc_shrn_iscd, s.mrkt_div_cls_code])
+      );
+
+      // RankingItem 생성
+      const items: RankingItem[] = quotes.map((quote, idx) => {
+        const marketCode = marketMap.get(quote.symbol) || 'J';
+        return {
+          symbol: quote.symbol,
+          name: '', // 종목명은 getStockInfo에서 가져와야 함
+          market: marketCode === 'J' ? 'KOSPI' : 'KOSDAQ',
+          rank: idx + 1,
+          price: quote.price,
+          changePercent: quote.changePercent,
+          volume: quote.volume,
+          amount: quote.tradingValue || 0,
+        };
+      });
+
+      // 종목명 조회 (순차 처리 - Rate Limit 대응)
+      for (let i = 0; i < items.length; i++) {
+        const stockInfo = await this.getStockInfo(items[i].symbol);
+        if (stockInfo) {
+          items[i].name = stockInfo.name;
+        }
+        // 캐시 미스 시 API 호출이 발생하므로 딜레이 추가
+        if (i < items.length - 1) {
+          await this.delay(100);
+        }
+      }
+
+      const result: RankingResult = {
+        type: 'popularity',
+        market: 'KOSPI', // 전체 시장 (KOSPI/KOSDAQ 혼합)
+        items,
+        fetchedAt: Date.now(),
+      };
+
+      setToMemory(cacheKey, result, CACHE_TTL.RANKING);
+      console.log('[KIS] HTS 조회상위 데이터 캐싱 완료');
+      return result;
+    } catch (error) {
+      console.error('[KIS] getViewRanking 실패:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * HTS 조회상위 종목 순위 조회 (인기도)
+   * TR_ID: HHMCM000100C0
+   * 참고: 한국투자 HTS(eFriend Plus) > [0158] 조회종목상위 화면
+   *
+   * HTS 조회상위 API 실패 시 거래량 순위 API로 대체
+   */
+  async getPopularityRanking(
+    market: 'KOSPI' | 'KOSDAQ',
+    limit: number = 30
+  ): Promise<RankingResult> {
+    const cacheKey = CacheKeys.ranking('popularity', market);
+    const cached = getFromMemory<RankingResult>(cacheKey);
+    if (cached) return cached;
+
+    try {
+      // 1. HTS 조회상위 API 시도
+      const viewRanking = await this.getViewRanking(limit);
+
+      // 시장별 필터링
+      const filteredItems = viewRanking.items.filter(
+        (item) => item.market === market
+      );
+
+      // 순위 재부여
+      const items = filteredItems.map((item, idx) => ({
+        ...item,
+        rank: idx + 1,
+      }));
+
+      const result: RankingResult = {
+        type: 'popularity',
+        market,
+        items,
+        fetchedAt: Date.now(),
+      };
+
+      setToMemory(cacheKey, result, CACHE_TTL.RANKING);
+      return result;
+    } catch (error) {
+      console.warn('[KIS] HTS 조회상위 API 실패, 거래량 순위로 대체:', error);
+
+      // 2. 대체: 거래량 순위 API (회전율 기준)
+      return this.getFallbackPopularityRanking(market, limit);
+    }
+  }
+
+  /**
+   * 인기도 순위 대체 (거래량 순위 API 활용)
+   * HTS 조회상위 API 실패 시 사용
+   */
+  private async getFallbackPopularityRanking(
+    market: 'KOSPI' | 'KOSDAQ',
+    limit: number
+  ): Promise<RankingResult> {
+    try {
+      const data = await this.request<{
+        output: Array<{
+          mksc_shrn_iscd: string;
+          hts_kor_isnm: string;
+          stck_prpr: string;
+          prdy_ctrt: string;
+          acml_vol: string;
+          acml_tr_pbmn: string;
+          vol_tnrt: string;
+        }>;
+      }>(
+        '/uapi/domestic-stock/v1/quotations/volume-rank',
+        {
+          FID_COND_MRKT_DIV_CODE: market === 'KOSPI' ? 'J' : 'Q',
+          FID_COND_SCR_DIV_CODE: '20171',
+          FID_INPUT_ISCD: '0000',
+          FID_DIV_CLS_CODE: '0',
+          FID_BLNG_CLS_CODE: '0',
+          FID_TRGT_CLS_CODE: '111111111',
+          FID_TRGT_EXLS_CLS_CODE: '000000',
+          FID_INPUT_PRICE_1: '',
+          FID_INPUT_PRICE_2: '',
+          FID_VOL_CNT: '',
+          FID_INPUT_DATE_1: '',
+        },
+        'FHPST01710000'
+      );
+
+      // 회전율 기준 정렬
+      const sortedItems = (data.output || [])
+        .map((item) => ({
+          ...item,
+          turnoverRate: parseFloat(item.vol_tnrt) || 0,
+        }))
+        .sort((a, b) => b.turnoverRate - a.turnoverRate)
+        .slice(0, limit);
+
+      const items: RankingItem[] = sortedItems.map((item, idx) => ({
+        symbol: item.mksc_shrn_iscd,
+        name: item.hts_kor_isnm,
+        market,
+        rank: idx + 1,
+        price: parseInt(item.stck_prpr) || 0,
+        changePercent: parseFloat(item.prdy_ctrt) || 0,
+        volume: parseInt(item.acml_vol) || 0,
+        amount: parseInt(item.acml_tr_pbmn) || 0,
+        turnoverRate: item.turnoverRate,
+      }));
+
+      const result: RankingResult = {
+        type: 'popularity',
+        market,
+        items,
+        fetchedAt: Date.now(),
+      };
+
+      const cacheKey = CacheKeys.ranking('popularity', market);
+      setToMemory(cacheKey, result, CACHE_TTL.RANKING);
+      return result;
+    } catch (error) {
+      console.error(`[KIS] getFallbackPopularityRanking(${market}) 실패:`, error);
+      return { type: 'popularity', market, items: [], fetchedAt: Date.now() };
+    }
+  }
+
+  /**
    * 모든 순위 데이터 통합 조회 (캐시 활용, 병렬 호출)
    */
   async getAllRankings(
@@ -902,13 +1119,14 @@ export class KISProvider implements StockDataProvider {
     const results = new Map<RankingType, RankingResult>();
     const markets: ('KOSPI' | 'KOSDAQ')[] = market === 'ALL' ? ['KOSPI', 'KOSDAQ'] : [market];
 
-    // 각 시장별로 4개 API 병렬 호출
+    // 각 시장별로 5개 API 병렬 호출
     for (const mkt of markets) {
-      const [change, turnover, amount, foreign] = await Promise.all([
+      const [change, turnover, amount, foreign, popularity] = await Promise.all([
         this.getChangeRanking(mkt, limit),
         this.getTurnoverRanking(mkt, limit),
         this.getAmountRanking(mkt, limit),
         this.getForeignInstRanking(mkt, limit),
+        this.getPopularityRanking(mkt, limit),
       ]);
 
       // ALL인 경우 두 시장 결과를 병합
@@ -917,11 +1135,13 @@ export class KISProvider implements StockDataProvider {
         this.mergeRankingResults(results, 'turnover', turnover);
         this.mergeRankingResults(results, 'amount', amount);
         this.mergeRankingResults(results, 'foreign', foreign);
+        this.mergeRankingResults(results, 'popularity', popularity);
       } else {
         results.set('change', change);
         results.set('turnover', turnover);
         results.set('amount', amount);
         results.set('foreign', foreign);
+        results.set('popularity', popularity);
       }
     }
 
