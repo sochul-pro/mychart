@@ -256,80 +256,77 @@ export default function StockDetailPage({ params }: StockDetailPageProps) {
         </CardContent>
       </Card>
 
-      {/* 차트 + 뉴스 */}
-      <div className="grid gap-6 lg:grid-cols-[1fr_350px]">
-        {/* 차트 영역 */}
-        <Card>
-          <CardHeader className="pb-2 sm:pb-4">
-            <div className="flex items-center justify-between">
-              <CardTitle>차트</CardTitle>
-              <div className="flex items-center gap-2">
-                {isSaving && (
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    저장 중...
-                  </span>
-                )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsIndicatorPanelOpen(!isIndicatorPanelOpen)}
-                  className="gap-2"
-                >
-                  <Settings2 className="h-4 w-4" />
-                  <span className="hidden sm:inline">지표 설정</span>
-                  <ChevronDown
-                    className={cn(
-                      'h-4 w-4 transition-transform',
-                      isIndicatorPanelOpen && 'rotate-180'
-                    )}
-                  />
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="p-2 sm:p-6 pt-0">
-            {/* 지표 설정 패널 */}
-            {isIndicatorPanelOpen && (
-              <div className="mb-4">
-                <IndicatorPanel
-                  indicators={indicators}
-                  onIndicatorsChange={handleIndicatorsChange}
+      {/* 차트 영역 */}
+      <Card className="mb-6">
+        <CardHeader className="pb-2 sm:pb-4">
+          <div className="flex items-center justify-between">
+            <CardTitle>차트</CardTitle>
+            <div className="flex items-center gap-2">
+              {isSaving && (
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  저장 중...
+                </span>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsIndicatorPanelOpen(!isIndicatorPanelOpen)}
+                className="gap-2"
+              >
+                <Settings2 className="h-4 w-4" />
+                <span className="hidden sm:inline">지표 설정</span>
+                <ChevronDown
+                  className={cn(
+                    'h-4 w-4 transition-transform',
+                    isIndicatorPanelOpen && 'rotate-180'
+                  )}
                 />
-              </div>
-            )}
-
-            {/* 차트 */}
-            {ohlcv && ohlcv.length > 0 ? (
-              <StockChartWithIndicators
-                data={ohlcv}
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-2 sm:p-6 pt-0">
+          {/* 지표 설정 패널 */}
+          {isIndicatorPanelOpen && (
+            <div className="mb-4">
+              <IndicatorPanel
                 indicators={indicators}
-                height={400}
-                showVolume={true}
-                timeFrame={timeFrame}
-                onTimeFrameChange={setTimeFrame}
+                onIndicatorsChange={handleIndicatorsChange}
               />
-            ) : (
-              <div className="h-[300px] sm:h-[400px] flex items-center justify-center bg-muted/30 rounded-lg">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              </div>
-            )}
-          </CardContent>
-        </Card>
+            </div>
+          )}
 
-        {/* 뉴스 사이드패널 */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Star className="h-4 w-4" />
-              관련 뉴스
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <NewsFeed symbol={symbol} limit={10} title="" height="350px" />
-          </CardContent>
-        </Card>
-      </div>
+          {/* 차트 */}
+          {ohlcv && ohlcv.length > 0 ? (
+            <StockChartWithIndicators
+              data={ohlcv}
+              indicators={indicators}
+              height={400}
+              showVolume={true}
+              timeFrame={timeFrame}
+              onTimeFrameChange={setTimeFrame}
+            />
+          ) : (
+            <div className="h-[300px] sm:h-[400px] flex items-center justify-center bg-muted/30 rounded-lg">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 관련 뉴스 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Star className="h-4 w-4" />
+            관련 뉴스
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <NewsFeed symbol={symbol} limit={10} title="" height="300px" />
+        </CardContent>
+      </Card>
 
       {/* 관심종목 추가 다이얼로그 */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
