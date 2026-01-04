@@ -140,18 +140,24 @@
 ### TASK-008: 기술적 지표 오버레이 렌더링 ✅
 **설명**: 차트 위에 기술적 지표 시각화
 **범위**:
-- 이동평균선 오버레이 (SMA 20/60)
+- 이동평균선 오버레이 (5개 MA 지원, SMA/EMA 선택 가능)
 - RSI 서브차트
 - MACD 서브차트
+- 스토캐스틱(Slow) 서브차트 (%K, %D 라인)
 - 볼린저밴드 오버레이
 - 지표 ON/OFF 토글 UI (IndicatorPanel)
-- 지표 파라미터 설정 UI
+- 지표 파라미터 설정 UI (기간, 색상)
+- 지표 설정 DB 저장 (`/api/chart-settings`)
+- `useChartSettings` 훅 (TanStack Query, 500ms 디바운스 자동저장)
 
-**산출물**: `/components/chart/indicators/`
-- `StockChartWithIndicators.tsx`
-- `IndicatorPanel.tsx`
+**산출물**:
+- `/components/chart/indicators/StockChartWithIndicators.tsx`
+- `/components/chart/indicators/IndicatorPanel.tsx`
+- `/hooks/useChartSettings.ts`
+- `/app/api/chart-settings/route.ts`
+
 **의존성**: TASK-006, TASK-007
-**완료**: 2026-01-02
+**완료**: 2026-01-02 (지표 저장 기능 2026-01-04 추가)
 
 ---
 
@@ -222,15 +228,32 @@
 - 드래그앤드롭 순서 변경 (인프라 완료)
 - 메모, 목표가, 매수가 입력/수정 UI
 - useWatchlist 훅 (TanStack Query)
+- **2-panel 레이아웃 (2026-01-04 추가)**
+  - PC: 왼쪽 종목 목록 + 오른쪽 차트 (side-by-side)
+  - 모바일: 탭 전환 (목록/차트)
+- **실시간 시세 표시 (2026-01-04 추가)**
+  - 테이블 스타일 종목 목록 (종목명, 현재가, 등락률)
+  - useStockQuote 훅으로 30초 자동 갱신
+- **자동 순환 기능 (2026-01-04 추가)**
+  - 5초/10초/30초/1분 간격 설정
+  - 재생/일시정지, 이전/다음 버튼
+  - 진행률 표시 (Progress 컴포넌트)
+- **종목 삭제 기능 (2026-01-04 추가)**
+  - 마우스 오버 시 휴지통 아이콘 표시
 
 **산출물**:
-- `/app/(main)/watchlist/page.tsx`
+- `/app/(main)/watchlist/page.tsx` - 2-panel 레이아웃
 - `/components/watchlist/WatchlistGroupCard.tsx`
 - `/components/watchlist/WatchlistItemRow.tsx`
+- `/components/watchlist/AutoRotateControl.tsx` - 자동 순환 컨트롤
+- `/components/stock/StockQuoteCard.tsx` - 공용 시세 카드
+- `/components/stock/StockChartCard.tsx` - 공용 차트 카드
+- `/components/ui/progress.tsx` - 진행률 표시
+- `/components/ui/tabs.tsx` - 탭 컴포넌트
 - `/hooks/useWatchlist.ts`
 
 **의존성**: TASK-004, TASK-011
-**완료**: 2026-01-02
+**완료**: 2026-01-02 (2-panel 레이아웃, 자동순환, 삭제 기능 2026-01-04 추가)
 
 ---
 
@@ -302,17 +325,20 @@
 ### TASK-016: 종목 상세 페이지 ✅
 **설명**: 차트 + 정보 + 뉴스 통합 페이지
 **범위**:
-- 종목 기본 정보 헤더 (이름, 시장, 섹터 뱃지)
-- 현재가 정보 카드 (OHLC, 등락률)
-- 차트 뷰어 (StockChartWithIndicators)
-- 뉴스 피드 사이드패널 (350px)
+- 시세 카드에 종목 정보 통합 (헤더 제거)
+  - 종목명 정규화 (보통주 제거, 우선주는 (우) 표시)
+  - 종목코드 하위 6자리만 표시
+- 현재가 정보 카드 (OHLC, 등락률, 투자정보)
+- 차트 뷰어 (StockChartWithIndicators, 높이 600px)
+  - 지표 설정 자동 저장 (500ms 디바운스)
+  - 일/주/월봉 전환
+- 뉴스 피드 (차트 하단 배치)
 - 관심종목 추가 다이얼로그
-- 레이아웃 (데스크톱: 2컬럼, 모바일: 스택)
-- 252일 (1년) OHLCV 데이터
+- 252일 (1년) OHLCV 데이터 (API 페이지네이션)
 
 **산출물**: `/app/(main)/stocks/[symbol]/page.tsx`
 **의존성**: TASK-006, TASK-008, TASK-010, TASK-015
-**완료**: 2026-01-03
+**완료**: 2026-01-03 (레이아웃 개선 2026-01-04)
 
 ---
 
@@ -535,6 +561,8 @@ TASK-016 + TASK-014 + TASK-012 + TASK-015
 | 0.2 | 2026-01-01 | Phase 1을 Mock 기반으로 변경, Phase 6 (실서비스 연동) 추가 |
 | 0.3 | 2026-01-03 | TASK-022~025 완료 표시, 섹터 시스템 태스크 추가 |
 | 0.4 | 2026-01-04 | 전체 태스크 완료 상태 업데이트 (코드베이스 분석 기반) |
+| 0.5 | 2026-01-04 | TASK-008, TASK-016 차트 기능 개선 내역 반영 (지표 저장, 레이아웃 개선) |
+| 0.6 | 2026-01-04 | TASK-012 관심종목 기능 대폭 개선 (2-panel 레이아웃, 자동순환, 삭제 기능) |
 
 ---
 
