@@ -584,7 +584,7 @@ export function StockChartWithIndicators({
     <div className={`flex flex-col ${className}`} data-testid="stock-chart-with-indicators">
       {/* 타임프레임 선택 */}
       {onTimeFrameChange && (
-        <div className="mb-2 flex gap-1">
+        <div className="mb-1 flex gap-1">
           {(['D', 'W', 'M'] as TimeFrame[]).map((tf) => (
             <button
               key={tf}

@@ -118,38 +118,42 @@ export default function StockDetailPage({ params }: StockDetailPageProps) {
 
   return (
     <div className="container mx-auto py-6 px-4">
-      {/* 헤더 */}
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
-        <div>
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            <h1 className="text-xl sm:text-2xl font-bold">{info.name}</h1>
-            <Badge variant="outline">{info.market}</Badge>
-            {info.sector && (
-              <Badge variant="secondary">{info.sector}</Badge>
-            )}
-          </div>
-          <p className="text-muted-foreground mt-1">{info.symbol}</p>
-        </div>
-        {watchlistInfo.isRegistered ? (
-          <Button variant="secondary" className="w-full sm:w-auto" disabled>
-            <Check className="h-4 w-4 mr-2" />
-            <Star className="h-4 w-4 mr-1 fill-yellow-400 text-yellow-400" />
-            {watchlistInfo.groupName}
-          </Button>
-        ) : (
-          <Button onClick={() => setIsAddDialogOpen(true)} className="w-full sm:w-auto">
-            <Plus className="h-4 w-4 mr-2" />
-            관심 추가
-          </Button>
-        )}
-      </div>
-
       {/* 시세 정보 - 2컬럼 레이아웃 */}
       <Card className="mb-6">
         <CardContent className="pt-6">
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
-            {/* 왼쪽: 현재가 + 기본 시세 정보 */}
+            {/* 왼쪽: 종목 정보 + 현재가 + 기본 시세 정보 */}
             <div>
+              {/* 종목 정보 */}
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                    <h1 className="text-xl sm:text-2xl font-bold">
+                      {info.name.includes('우선주')
+                        ? info.name.replace('우선주', '') + '(우)'
+                        : info.name.replace('보통주', '')}
+                    </h1>
+                    <Badge variant="outline">{info.market}</Badge>
+                    {info.sector && (
+                      <Badge variant="secondary">{info.sector}</Badge>
+                    )}
+                  </div>
+                  <p className="text-muted-foreground mt-1">{info.symbol.slice(-6)}</p>
+                </div>
+                {watchlistInfo.isRegistered ? (
+                  <Button variant="secondary" size="sm" disabled>
+                    <Check className="h-4 w-4 mr-1" />
+                    <Star className="h-4 w-4 mr-1 fill-yellow-400 text-yellow-400" />
+                    {watchlistInfo.groupName}
+                  </Button>
+                ) : (
+                  <Button onClick={() => setIsAddDialogOpen(true)} size="sm">
+                    <Plus className="h-4 w-4 mr-1" />
+                    관심 추가
+                  </Button>
+                )}
+              </div>
+
               {/* 현재가 */}
               <div className="flex flex-wrap items-baseline gap-2 sm:gap-4">
                 <span className="text-3xl sm:text-4xl font-bold">
@@ -258,7 +262,7 @@ export default function StockDetailPage({ params }: StockDetailPageProps) {
 
       {/* 차트 영역 */}
       <Card className="mb-6">
-        <CardHeader className="pb-2 sm:pb-4">
+        <CardHeader className="pb-1 sm:pb-2">
           <div className="flex items-center justify-between">
             <CardTitle>차트</CardTitle>
             <div className="flex items-center gap-2">
@@ -302,7 +306,7 @@ export default function StockDetailPage({ params }: StockDetailPageProps) {
             <StockChartWithIndicators
               data={ohlcv}
               indicators={indicators}
-              height={400}
+              height={600}
               showVolume={true}
               timeFrame={timeFrame}
               onTimeFrameChange={setTimeFrame}
