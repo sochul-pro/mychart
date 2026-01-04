@@ -34,7 +34,7 @@ interface AutoRotateControlProps {
 export function AutoRotateControl({
   currentIndex,
   totalCount,
-  currentStockName,
+  currentStockName: _currentStockName,
   nextStockName,
   onPrevious,
   onNext,

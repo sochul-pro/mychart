@@ -224,7 +224,7 @@ export class KISProvider implements StockDataProvider {
       if (!data.output) return null;
 
       const result: StockInfo = {
-        symbol: data.output.pdno,
+        symbol: symbol.slice(-6), // 항상 6자리 종목코드 사용
         name: data.output.prdt_name,
         market: data.output.mket_id_cd === 'STK' ? 'KOSPI' : 'KOSDAQ',
         sector: data.output.scty_grp_id_cd,

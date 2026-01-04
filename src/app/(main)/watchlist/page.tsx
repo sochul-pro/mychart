@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback } from 'react';
-import { Plus, Loader2 } from 'lucide-react';
+import { Plus, Loader2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -15,7 +15,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { WatchlistGroupCard, AutoRotateControl } from '@/components/watchlist';
+import { AutoRotateControl } from '@/components/watchlist';
 import { StockQuoteCard, StockChartCard } from '@/components/stock';
 import { useWatchlist } from '@/hooks/useWatchlist';
 import { useStock } from '@/hooks/useStock';
@@ -193,10 +193,6 @@ export default function WatchlistPage() {
               group={group}
               selectedSymbol={selectedSymbol}
               onSelectStock={handleSelectStock}
-              onRenameGroup={handleRenameGroup}
-              onDeleteGroup={handleDeleteGroup}
-              onAddItem={handleAddItem}
-              onUpdateItem={handleUpdateItem}
               onDeleteItem={handleDeleteItem}
             />
           ))}
@@ -313,14 +309,6 @@ interface WatchlistGroupCardWithSelectionProps {
   group: WatchlistGroup;
   selectedSymbol: string | null;
   onSelectStock: (symbol: string) => void;
-  onRenameGroup: (groupId: string, name: string) => Promise<void>;
-  onDeleteGroup: (groupId: string) => Promise<void>;
-  onAddItem: (groupId: string, symbol: string, name: string) => Promise<void>;
-  onUpdateItem: (
-    groupId: string,
-    itemId: string,
-    data: { memo?: string | null; targetPrice?: number | null; buyPrice?: number | null }
-  ) => Promise<void>;
   onDeleteItem: (groupId: string, itemId: string) => Promise<void>;
 }
 
@@ -328,10 +316,6 @@ function WatchlistGroupCardWithSelection({
   group,
   selectedSymbol,
   onSelectStock,
-  onRenameGroup,
-  onDeleteGroup,
-  onAddItem,
-  onUpdateItem,
   onDeleteItem,
 }: WatchlistGroupCardWithSelectionProps) {
   return (
@@ -350,10 +334,11 @@ function WatchlistGroupCardWithSelection({
         ) : (
           <div>
             {/* 테이블 헤더 */}
-            <div className="grid grid-cols-[1fr_70px_65px] sm:grid-cols-[1fr_80px_80px] items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 text-xs text-muted-foreground border-b mb-1">
+            <div className="grid grid-cols-[1fr_70px_65px_28px] sm:grid-cols-[1fr_80px_80px_32px] items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 text-xs text-muted-foreground border-b mb-1">
               <span>종목명</span>
               <span className="text-right">현재가</span>
               <span className="text-right">등락률</span>
+              <span></span>
             </div>
             {/* 종목 행 */}
             <div className="space-y-0">
@@ -363,6 +348,7 @@ function WatchlistGroupCardWithSelection({
                   item={item}
                   isSelected={item.symbol === selectedSymbol}
                   onSelect={() => onSelectStock(item.symbol)}
+                  onDelete={() => onDeleteItem(group.id, item.id)}
                 />
               ))}
             </div>
@@ -380,28 +366,42 @@ interface WatchlistItemRowSelectableProps {
   item: WatchlistItem;
   isSelected: boolean;
   onSelect: () => void;
+  onDelete: () => Promise<void>;
 }
 
 function WatchlistItemRowSelectable({
   item,
   isSelected,
   onSelect,
+  onDelete,
 }: WatchlistItemRowSelectableProps) {
   const { data: quote, isLoading: isQuoteLoading } = useStockQuote({ symbol: item.symbol });
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const displayName = item.name.includes('우선주')
     ? item.name.replace('우선주', '') + '(우)'
     : item.name.replace('보통주', '');
 
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isDeleting) return;
+    setIsDeleting(true);
+    try {
+      await onDelete();
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
-    <button
-      onClick={onSelect}
+    <div
       className={cn(
-        'w-full grid grid-cols-[1fr_70px_65px] sm:grid-cols-[1fr_80px_80px] items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 rounded-md text-sm text-left transition-colors',
+        'group grid grid-cols-[1fr_70px_65px_28px] sm:grid-cols-[1fr_80px_80px_32px] items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 rounded-md text-sm transition-colors cursor-pointer',
         isSelected
           ? 'bg-primary/10 border border-primary/30'
           : 'hover:bg-muted/50'
       )}
+      onClick={onSelect}
     >
       {/* 종목명 + 코드 */}
       <div className="min-w-0">
@@ -439,6 +439,20 @@ function WatchlistItemRowSelectable({
           '-'
         )}
       </div>
-    </button>
+
+      {/* 삭제 버튼 */}
+      <button
+        onClick={handleDelete}
+        disabled={isDeleting}
+        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-destructive/10 rounded transition-opacity"
+        title="삭제"
+      >
+        {isDeleting ? (
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        ) : (
+          <Trash2 className="h-4 w-4 text-destructive" />
+        )}
+      </button>
+    </div>
   );
 }
