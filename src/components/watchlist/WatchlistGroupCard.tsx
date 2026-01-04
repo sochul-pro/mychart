@@ -126,21 +126,32 @@ export function WatchlistGroupCard({
             </DropdownMenu>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-2">
           {group.items.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">
               종목을 추가하세요
             </p>
           ) : (
-            <div className="space-y-1">
-              {group.items.map((item: WatchlistItem) => (
-                <WatchlistItemRow
-                  key={item.id}
-                  item={item}
-                  onUpdate={(data) => onUpdateItem(group.id, item.id, data)}
-                  onDelete={() => onDeleteItem(group.id, item.id)}
-                />
-              ))}
+            <div>
+              {/* 테이블 헤더 */}
+              <div className="grid grid-cols-[1fr_70px_65px_28px] sm:grid-cols-[1fr_80px_80px_70px_32px] items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 text-xs text-muted-foreground border-b mb-1">
+                <span>종목명</span>
+                <span className="text-right">현재가</span>
+                <span className="text-right">등락률</span>
+                <span className="hidden sm:block text-right">목표가</span>
+                <span></span>
+              </div>
+              {/* 종목 행 */}
+              <div className="space-y-0">
+                {group.items.map((item: WatchlistItem) => (
+                  <WatchlistItemRow
+                    key={item.id}
+                    item={item}
+                    onUpdate={(data) => onUpdateItem(group.id, item.id, data)}
+                    onDelete={() => onDeleteItem(group.id, item.id)}
+                  />
+                ))}
+              </div>
             </div>
           )}
         </CardContent>

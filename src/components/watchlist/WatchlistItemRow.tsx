@@ -2,9 +2,8 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { MoreHorizontal, Trash2, FileText } from 'lucide-react';
+import { MoreHorizontal, Trash2, FileText, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,6 +20,8 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useStockQuote } from '@/hooks/useStock';
+import { cn } from '@/lib/utils';
 import type { WatchlistItem } from '@/types';
 
 interface WatchlistItemRowProps {
@@ -40,6 +41,8 @@ export function WatchlistItemRow({ item, onUpdate, onDelete }: WatchlistItemRowP
   const [targetPrice, setTargetPrice] = useState(item.targetPrice?.toString() ?? '');
   const [buyPrice, setBuyPrice] = useState(item.buyPrice?.toString() ?? '');
   const [isLoading, setIsLoading] = useState(false);
+
+  const { data: quote, isLoading: isQuoteLoading } = useStockQuote({ symbol: item.symbol });
 
   const handleUpdate = async () => {
     setIsLoading(true);
@@ -65,41 +68,64 @@ export function WatchlistItemRow({ item, onUpdate, onDelete }: WatchlistItemRowP
     }
   };
 
+  // 종목명 정규화 (보통주 제거, 우선주 → (우))
+  const displayName = item.name.includes('우선주')
+    ? item.name.replace('우선주', '') + '(우)'
+    : item.name.replace('보통주', '');
+
   return (
     <>
-      <div className="flex items-center justify-between p-2 hover:bg-muted/50 rounded-md group">
-        <Link
-          href={`/stocks/${item.symbol}`}
-          className="flex-1 flex items-center gap-3"
-        >
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="font-medium truncate">{item.name}</span>
-              <span className="text-xs text-muted-foreground">{item.symbol}</span>
-            </div>
-            {item.memo && (
-              <p className="text-xs text-muted-foreground truncate mt-0.5">{item.memo}</p>
-            )}
-          </div>
-        </Link>
+      <Link
+        href={`/stocks/${item.symbol}`}
+        className="grid grid-cols-[1fr_70px_65px_28px] sm:grid-cols-[1fr_80px_80px_70px_32px] items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 hover:bg-muted/50 rounded-md group text-sm"
+      >
+        {/* 종목명 + 코드 */}
+        <div className="min-w-0">
+          <span className="font-medium truncate block">{displayName}</span>
+          <span className="text-xs text-muted-foreground">{item.symbol.slice(-6)}</span>
+        </div>
 
-        <div className="flex items-center gap-2">
-          {item.targetPrice && (
-            <Badge variant="outline" className="text-xs">
-              목표 {item.targetPrice.toLocaleString()}
-            </Badge>
+        {/* 현재가 */}
+        <div className="text-right font-medium tabular-nums text-xs sm:text-sm">
+          {isQuoteLoading ? (
+            <Loader2 className="h-3 w-3 animate-spin ml-auto" />
+          ) : quote ? (
+            quote.price.toLocaleString()
+          ) : (
+            '-'
           )}
-          {item.buyPrice && (
-            <Badge variant="secondary" className="text-xs">
-              매수 {item.buyPrice.toLocaleString()}
-            </Badge>
+        </div>
+
+        {/* 등락률 */}
+        <div
+          className={cn(
+            'text-right tabular-nums text-xs sm:text-sm',
+            quote?.changePercent && quote.changePercent > 0 && 'text-red-500',
+            quote?.changePercent && quote.changePercent < 0 && 'text-blue-500'
           )}
+        >
+          {isQuoteLoading ? (
+            '-'
+          ) : quote ? (
+            `${quote.changePercent > 0 ? '+' : ''}${quote.changePercent.toFixed(2)}%`
+          ) : (
+            '-'
+          )}
+        </div>
+
+        {/* 목표가 - 모바일에서 숨김 */}
+        <div className="hidden sm:block text-right tabular-nums text-muted-foreground">
+          {item.targetPrice ? item.targetPrice.toLocaleString() : '-'}
+        </div>
+
+        {/* 메뉴 버튼 */}
+        <div onClick={(e) => e.preventDefault()}>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 opacity-0 group-hover:opacity-100"
+                className="h-7 w-7 opacity-0 group-hover:opacity-100 sm:opacity-0"
               >
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
@@ -119,7 +145,7 @@ export function WatchlistItemRow({ item, onUpdate, onDelete }: WatchlistItemRowP
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-      </div>
+      </Link>
 
       {/* 수정 다이얼로그 */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
