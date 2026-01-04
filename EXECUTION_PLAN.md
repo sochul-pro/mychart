@@ -241,20 +241,29 @@
   - 진행률 표시 (Progress 컴포넌트)
 - **종목 삭제 기능 (2026-01-04 추가)**
   - 마우스 오버 시 휴지통 아이콘 표시
+- **종목 검색 기능 (2026-01-04 추가, #41)**
+  - StockSearchDialog 컴포넌트 (검색 다이얼로그)
+  - 혼합 검색 방식: 마스터 데이터 + KIS API 폴백
+  - 종목명/코드 검색, 현재가/등락률 표시
+  - 마스터에 없는 종목코드 → "API에서 검색" 버튼
+  - API 조회 종목 자동 저장 (동적 마스터)
 
 **산출물**:
 - `/app/(main)/watchlist/page.tsx` - 2-panel 레이아웃
 - `/components/watchlist/WatchlistGroupCard.tsx`
 - `/components/watchlist/WatchlistItemRow.tsx`
 - `/components/watchlist/AutoRotateControl.tsx` - 자동 순환 컨트롤
+- `/components/watchlist/StockSearchDialog.tsx` - 종목 검색 다이얼로그 (2026-01-04 추가)
 - `/components/stock/StockQuoteCard.tsx` - 공용 시세 카드
 - `/components/stock/StockChartCard.tsx` - 공용 차트 카드
 - `/components/ui/progress.tsx` - 진행률 표시
 - `/components/ui/tabs.tsx` - 탭 컴포넌트
 - `/hooks/useWatchlist.ts`
+- `/lib/api/stock-master.ts` - 종목 마스터 데이터 (정적+동적) (2026-01-04 추가)
+- `/app/api/stocks/search/route.ts` - 종목 검색 API (2026-01-04 추가)
 
 **의존성**: TASK-004, TASK-011
-**완료**: 2026-01-02 (2-panel 레이아웃, 자동순환, 삭제 기능 2026-01-04 추가)
+**완료**: 2026-01-02 (2-panel 레이아웃, 자동순환, 삭제 기능 2026-01-04 추가, 종목 검색 기능 2026-01-04 추가)
 
 ---
 
@@ -577,6 +586,7 @@ TASK-016 + TASK-014 + TASK-012 + TASK-015
 | 0.5 | 2026-01-04 | TASK-008, TASK-016 차트 기능 개선 내역 반영 (지표 저장, 레이아웃 개선) |
 | 0.6 | 2026-01-04 | TASK-012 관심종목 기능 대폭 개선 (2-panel 레이아웃, 자동순환, 삭제 기능) |
 | 0.7 | 2026-01-04 | TASK-004, TASK-013, TASK-014 스크리너 기능 개선 (#40 - HTS 조회상위 API 연동, 순위 조건 필터 기능) |
+| 0.8 | 2026-01-04 | TASK-012 종목 검색 기능 추가 (#41 - 혼합 검색 방식, 동적 마스터 데이터) |
 
 ---
 
