@@ -68,9 +68,10 @@
 - ProviderFactory로 자동 Provider 선택
 - 일/주/월봉 OHLCV 데이터
 - 현재가, 호가 데이터
-- 4대 순위 API (등락률, 회전율, 거래대금, 외인/기관)
+- 5대 순위 API (등락률, 회전율, 거래대금, 외인/기관, HTS 조회상위)
+- HTS 조회상위 API (TR_ID: HHMCM000100C0) 연동
 - API 캐싱 시스템 (30초~600초 TTL)
-- Rate Limit 대응 (500ms 딜레이)
+- Rate Limit 대응 (순차 호출 + 120ms 딜레이)
 
 **산출물**:
 - `/lib/api/stock-provider.ts` - Provider 인터페이스
@@ -80,7 +81,7 @@
 - `/lib/api/cache.ts` - 캐싱 시스템
 
 **의존성**: TASK-001
-**완료**: 2026-01-03
+**완료**: 2026-01-03, 2026-01-04 (#40 - HTS 조회상위 API 추가)
 
 ---
 
@@ -258,22 +259,27 @@
 ---
 
 ### TASK-013: 주도주 스크리너 - 백엔드 ✅
-**설명**: 4대 순위 기반 주도주 선별 로직
+**설명**: 5대 순위 기반 주도주 선별 로직
 **범위**:
 - 등락률 순위 TOP 50 필터링
 - 회전율 순위 TOP 50 필터링
 - 거래대금 순위 TOP 50 필터링
 - 외인/기관 순위 TOP 50 필터링
+- **HTS 조회상위 순위 TOP 20 필터링 (2026-01-04 추가)**
 - 복합 점수 계산: `(50 - rank) * weight`
+- **순위 조건 선택 기능 (2026-01-04 추가)**
+  - 사용자가 5개 순위 중 원하는 조건만 선택 가능
+  - 선택된 조건만 점수 계산에 반영
 - 캐싱 (30초 TTL)
 
 **산출물**:
 - `/lib/screener/leader-detector.ts`
 - `/lib/screener/filters.ts`
 - `/app/api/screener/route.ts`
+- `/types/screener.ts` - SelectedRankings, RANKING_LABELS 타입 추가 (2026-01-04)
 
 **의존성**: TASK-004
-**완료**: 2026-01-03 (#31)
+**완료**: 2026-01-03 (#31), 2026-01-04 (#40 - HTS 조회상위 API 연동, 순위 조건 필터)
 
 ---
 
@@ -283,20 +289,27 @@
 - 주도주 테이블 (ScreenerTable)
 - 필터 옵션 (ScreenerFilters)
   - 시장 필터 (KOSPI/KOSDAQ/전체)
-  - 4대 순위 가중치 슬라이더
+  - 5대 순위 가중치 슬라이더
   - 최소 순위 등장 횟수
+  - **순위 조건 선택 UI (2026-01-04 추가)**
+    - Badge 토글로 5개 순위 조건 ON/OFF
+    - 아이콘 + 라벨로 직관적 표시
 - 정렬 기능
 - 종목 클릭 시 상세 페이지 이동
 - useScreener 훅
+- **useScreenerSettings 훅 (2026-01-04 추가)**
+  - 설정값 localStorage 저장/로드
+  - 자동 저장 (변경 시 즉시 반영)
 
 **산출물**:
 - `/app/(main)/screener/page.tsx`
 - `/components/screener/ScreenerTable.tsx`
 - `/components/screener/ScreenerFilters.tsx`
 - `/hooks/useScreener.ts`
+- `/hooks/useScreenerSettings.ts` (2026-01-04 추가)
 
 **의존성**: TASK-013
-**완료**: 2026-01-03 (#31)
+**완료**: 2026-01-03 (#31), 2026-01-04 (#40 - 순위 조건 필터 UI, 설정 저장)
 
 ---
 
@@ -563,6 +576,7 @@ TASK-016 + TASK-014 + TASK-012 + TASK-015
 | 0.4 | 2026-01-04 | 전체 태스크 완료 상태 업데이트 (코드베이스 분석 기반) |
 | 0.5 | 2026-01-04 | TASK-008, TASK-016 차트 기능 개선 내역 반영 (지표 저장, 레이아웃 개선) |
 | 0.6 | 2026-01-04 | TASK-012 관심종목 기능 대폭 개선 (2-panel 레이아웃, 자동순환, 삭제 기능) |
+| 0.7 | 2026-01-04 | TASK-004, TASK-013, TASK-014 스크리너 기능 개선 (#40 - HTS 조회상위 API 연동, 순위 조건 필터 기능) |
 
 ---
 

@@ -38,6 +38,9 @@ yarn-error.log*
 # API data cache
 .cache/
 
+# Dynamic stock master data
+/data/
+
 # vercel
 .vercel
 

@@ -15,11 +15,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AutoRotateControl } from '@/components/watchlist';
+import { AutoRotateControl, StockSearchDialog } from '@/components/watchlist';
 import { StockQuoteCard, StockChartCard } from '@/components/stock';
 import { useWatchlist } from '@/hooks/useWatchlist';
 import { useStock } from '@/hooks/useStock';
-import type { WatchlistItem, TimeFrame } from '@/types';
+import type { WatchlistItem, WatchlistGroup, TimeFrame } from '@/types';
 import { cn } from '@/lib/utils';
 
 export default function WatchlistPage() {
@@ -41,6 +41,8 @@ export default function WatchlistPage() {
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
   const [timeFrame, setTimeFrame] = useState<TimeFrame>('D');
   const [mobileTab, setMobileTab] = useState<'list' | 'chart'>('list');
+  // 종목 검색 다이얼로그 상태
+  const [searchDialogGroup, setSearchDialogGroup] = useState<WatchlistGroup | null>(null);
 
   // 모든 종목을 flat list로 변환
   const allItems = useMemo(() => {
@@ -194,6 +196,7 @@ export default function WatchlistPage() {
               selectedSymbol={selectedSymbol}
               onSelectStock={handleSelectStock}
               onDeleteItem={handleDeleteItem}
+              onAddStock={() => setSearchDialogGroup(group)}
             />
           ))}
         </div>
@@ -264,6 +267,19 @@ export default function WatchlistPage() {
         </Tabs>
       </div>
 
+      {/* 종목 검색 다이얼로그 */}
+      <StockSearchDialog
+        open={searchDialogGroup !== null}
+        onOpenChange={(open) => !open && setSearchDialogGroup(null)}
+        onAddStock={async (symbol, name) => {
+          if (searchDialogGroup) {
+            await addItem({ groupId: searchDialogGroup.id, data: { symbol, name } });
+          }
+        }}
+        existingSymbols={searchDialogGroup?.items.map((item) => item.symbol) || []}
+        groupName={searchDialogGroup?.name}
+      />
+
       {/* 그룹 생성 다이얼로그 */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         <DialogContent>
@@ -303,13 +319,12 @@ export default function WatchlistPage() {
 }
 
 // 선택 기능이 추가된 WatchlistGroupCard 래퍼
-import type { WatchlistGroup } from '@/types';
-
 interface WatchlistGroupCardWithSelectionProps {
   group: WatchlistGroup;
   selectedSymbol: string | null;
   onSelectStock: (symbol: string) => void;
   onDeleteItem: (groupId: string, itemId: string) => Promise<void>;
+  onAddStock: () => void;
 }
 
 function WatchlistGroupCardWithSelection({
@@ -317,6 +332,7 @@ function WatchlistGroupCardWithSelection({
   selectedSymbol,
   onSelectStock,
   onDeleteItem,
+  onAddStock,
 }: WatchlistGroupCardWithSelectionProps) {
   return (
     <Card className="w-full">
@@ -325,6 +341,15 @@ function WatchlistGroupCardWithSelection({
           <CardTitle className="text-lg font-semibold">{group.name}</CardTitle>
           <span className="text-sm text-muted-foreground">({group.items.length})</span>
         </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={onAddStock}
+          title="종목 추가"
+        >
+          <Plus className="h-4 w-4" />
+        </Button>
       </CardHeader>
       <CardContent className="px-2">
         {group.items.length === 0 ? (
