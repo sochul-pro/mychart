@@ -2,31 +2,39 @@ import type { OHLCV } from '@/types';
 import { smaFromValues } from './moving-average';
 
 export interface StochasticResult {
-  k: (number | null)[]; // Fast %K
+  k: (number | null)[]; // Slow %K
   d: (number | null)[]; // Slow %D
 }
 
 /**
- * Stochastic Oscillator 스토캐스틱
+ * Slow Stochastic Oscillator 스토캐스틱
  * @param data OHLCV 데이터 배열
  * @param kPeriod %K 기간 (기본값: 14)
  * @param dPeriod %D 기간 (기본값: 3)
- * @returns %K, %D 값 배열 (0-100 사이)
+ * @param smoothK %K 스무딩 기간 (기본값: 3)
+ * @returns Slow %K, Slow %D 값 배열 (0-100 사이)
+ *
+ * Slow Stochastic:
+ * - Raw %K = (종가 - 최저가) / (최고가 - 최저가) × 100
+ * - Slow %K = SMA(Raw %K, smoothK)
+ * - Slow %D = SMA(Slow %K, dPeriod)
  */
 export function stochastic(
   data: OHLCV[],
   kPeriod: number = 14,
-  dPeriod: number = 3
+  dPeriod: number = 3,
+  smoothK: number = 3
 ): StochasticResult {
   if (kPeriod <= 0 || data.length === 0) {
     return { k: [], d: [] };
   }
 
-  const kValues: (number | null)[] = [];
+  const rawKValues: (number | null)[] = [];
 
+  // Step 1: Raw %K 계산
   for (let i = 0; i < data.length; i++) {
     if (i < kPeriod - 1) {
-      kValues.push(null);
+      rawKValues.push(null);
       continue;
     }
 
@@ -39,30 +47,45 @@ export function stochastic(
       lowestLow = Math.min(lowestLow, data[i - j].low);
     }
 
-    // %K = (현재 종가 - 최저가) / (최고가 - 최저가) * 100
+    // Raw %K = (현재 종가 - 최저가) / (최고가 - 최저가) * 100
     const range = highestHigh - lowestLow;
     if (range === 0) {
-      kValues.push(50); // 변동이 없으면 중간값
+      rawKValues.push(50); // 변동이 없으면 중간값
     } else {
       const k = ((data[i].close - lowestLow) / range) * 100;
-      kValues.push(k);
+      rawKValues.push(k);
     }
   }
 
-  // %D = %K의 SMA
-  const validKValues = kValues.filter((v): v is number => v !== null);
-  const dSma = smaFromValues(validKValues, dPeriod);
+  // Step 2: Slow %K = SMA(Raw %K, smoothK)
+  const validRawK = rawKValues.filter((v): v is number => v !== null);
+  const slowKSma = smaFromValues(validRawK, smoothK);
 
-  const dValues: (number | null)[] = [];
-  let dIndex = 0;
+  const slowKValues: (number | null)[] = [];
+  let slowKIndex = 0;
 
   for (let i = 0; i < data.length; i++) {
-    if (kValues[i] === null) {
-      dValues.push(null);
+    if (rawKValues[i] === null) {
+      slowKValues.push(null);
     } else {
-      dValues.push(dSma[dIndex++] ?? null);
+      slowKValues.push(slowKSma[slowKIndex++] ?? null);
     }
   }
 
-  return { k: kValues, d: dValues };
+  // Step 3: Slow %D = SMA(Slow %K, dPeriod)
+  const validSlowK = slowKValues.filter((v): v is number => v !== null);
+  const slowDSma = smaFromValues(validSlowK, dPeriod);
+
+  const slowDValues: (number | null)[] = [];
+  let slowDIndex = 0;
+
+  for (let i = 0; i < data.length; i++) {
+    if (slowKValues[i] === null) {
+      slowDValues.push(null);
+    } else {
+      slowDValues.push(slowDSma[slowDIndex++] ?? null);
+    }
+  }
+
+  return { k: slowKValues, d: slowDValues };
 }
