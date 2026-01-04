@@ -289,7 +289,7 @@ export class KISProvider implements StockDataProvider {
   }
 
   /**
-   * OHLCV 차트 데이터 조회 (파일 캐시 적용)
+   * OHLCV 차트 데이터 조회 (파일 캐시 적용, 페이지네이션 지원)
    */
   async getOHLCV(
     symbol: string,
@@ -308,68 +308,101 @@ export class KISProvider implements StockDataProvider {
       M: 'M',
     };
 
-    // 날짜 범위 계산
-    const endDate = new Date();
-    const startDate = new Date();
-
-    switch (timeFrame) {
-      case 'D':
-        startDate.setDate(startDate.getDate() - limit);
-        break;
-      case 'W':
-        startDate.setDate(startDate.getDate() - limit * 7);
-        break;
-      case 'M':
-        startDate.setMonth(startDate.getMonth() - limit);
-        break;
-    }
-
     const formatDate = (d: Date) =>
       d.toISOString().slice(0, 10).replace(/-/g, '');
 
+    // API는 한 번에 약 100개 데이터만 반환하므로 페이지네이션 필요
+    const BATCH_SIZE = 100;
+    const allData: OHLCV[] = [];
+
     try {
-      const data = await this.request<{
-        output2: Array<{
-          stck_bsop_date: string;
-          stck_oprc: string;
-          stck_hgpr: string;
-          stck_lwpr: string;
-          stck_clpr: string;
-          acml_vol: string;
-        }>;
-      }>(
-        '/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice',
-        {
-          FID_COND_MRKT_DIV_CODE: 'J',
-          FID_INPUT_ISCD: symbol,
-          FID_INPUT_DATE_1: formatDate(startDate),
-          FID_INPUT_DATE_2: formatDate(endDate),
-          FID_PERIOD_DIV_CODE: periodMap[timeFrame],
-          FID_ORG_ADJ_PRC: '0',
-        },
-        'FHKST03010100'
-      );
+      let currentEndDate = new Date();
+      let remainingLimit = limit;
 
-      const result = (data.output2 || [])
-        .map((item) => {
-          const dateStr = item.stck_bsop_date;
-          const date = new Date(
-            parseInt(dateStr.slice(0, 4)),
-            parseInt(dateStr.slice(4, 6)) - 1,
-            parseInt(dateStr.slice(6, 8))
-          );
+      // 필요한 만큼 반복 호출 (최대 5회로 제한)
+      for (let i = 0; i < 5 && remainingLimit > 0; i++) {
+        // 날짜 범위 계산 (거래일 기준으로 약 1.5배 여유)
+        const daysToFetch = Math.min(remainingLimit, BATCH_SIZE);
+        const startDate = new Date(currentEndDate);
 
-          return {
-            time: date.getTime(),
-            open: parseInt(item.stck_oprc),
-            high: parseInt(item.stck_hgpr),
-            low: parseInt(item.stck_lwpr),
-            close: parseInt(item.stck_clpr),
-            volume: parseInt(item.acml_vol),
-          };
-        })
-        .reverse()
-        .slice(0, limit);
+        switch (timeFrame) {
+          case 'D':
+            startDate.setDate(startDate.getDate() - Math.ceil(daysToFetch * 1.5));
+            break;
+          case 'W':
+            startDate.setDate(startDate.getDate() - daysToFetch * 7);
+            break;
+          case 'M':
+            startDate.setMonth(startDate.getMonth() - daysToFetch);
+            break;
+        }
+
+        const data = await this.request<{
+          output2: Array<{
+            stck_bsop_date: string;
+            stck_oprc: string;
+            stck_hgpr: string;
+            stck_lwpr: string;
+            stck_clpr: string;
+            acml_vol: string;
+          }>;
+        }>(
+          '/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice',
+          {
+            FID_COND_MRKT_DIV_CODE: 'J',
+            FID_INPUT_ISCD: symbol,
+            FID_INPUT_DATE_1: formatDate(startDate),
+            FID_INPUT_DATE_2: formatDate(currentEndDate),
+            FID_PERIOD_DIV_CODE: periodMap[timeFrame],
+            FID_ORG_ADJ_PRC: '0',
+          },
+          'FHKST03010100'
+        );
+
+        const batchData = (data.output2 || [])
+          .map((item) => {
+            const dateStr = item.stck_bsop_date;
+            const date = new Date(
+              parseInt(dateStr.slice(0, 4)),
+              parseInt(dateStr.slice(4, 6)) - 1,
+              parseInt(dateStr.slice(6, 8))
+            );
+
+            return {
+              time: date.getTime(),
+              open: parseInt(item.stck_oprc),
+              high: parseInt(item.stck_hgpr),
+              low: parseInt(item.stck_lwpr),
+              close: parseInt(item.stck_clpr),
+              volume: parseInt(item.acml_vol),
+            };
+          });
+
+        if (batchData.length === 0) break;
+
+        // 데이터 추가 (중복 제거)
+        for (const item of batchData) {
+          if (!allData.some(d => d.time === item.time)) {
+            allData.push(item);
+          }
+        }
+
+        remainingLimit = limit - allData.length;
+
+        // 다음 조회를 위해 가장 오래된 날짜의 하루 전으로 설정
+        const oldestDate = Math.min(...batchData.map(d => d.time));
+        currentEndDate = new Date(oldestDate - 24 * 60 * 60 * 1000);
+
+        // API 호출 간격 (Rate limit 대응)
+        if (remainingLimit > 0) {
+          await this.delay(500);
+        }
+      }
+
+      // 시간순 정렬 후 최신 limit개 반환
+      const result = allData
+        .sort((a, b) => a.time - b.time)
+        .slice(-limit);
 
       // 파일 캐시 저장
       if (result.length > 0) {
