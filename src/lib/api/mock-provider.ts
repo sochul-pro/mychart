@@ -43,18 +43,29 @@ export class MockProvider implements StockDataProvider {
     const prevClose = price * (1 - (Math.random() - 0.5) * 0.04);
     const change = price - prevClose;
     const changePercent = (change / prevClose) * 100;
+    const volume = Math.floor(Math.random() * 10000000);
 
     return {
       symbol,
       price,
       change: Math.round(change),
       changePercent: Math.round(changePercent * 100) / 100,
-      volume: Math.floor(Math.random() * 10000000),
+      volume,
       high: Math.round(price * 1.02),
       low: Math.round(price * 0.98),
       open: Math.round(prevClose * (1 + (Math.random() - 0.5) * 0.02)),
       prevClose: Math.round(prevClose),
       timestamp: Date.now(),
+      // 확장 정보 (Mock 데이터)
+      high52w: Math.round(price * (1 + Math.random() * 0.5)),
+      low52w: Math.round(price * (0.5 + Math.random() * 0.3)),
+      marketCap: Math.floor(Math.random() * 500000) + 1000, // 억원 단위
+      per: Math.round((5 + Math.random() * 30) * 100) / 100,
+      pbr: Math.round((0.5 + Math.random() * 3) * 100) / 100,
+      eps: Math.round(price / (5 + Math.random() * 20)),
+      bps: Math.round(price * (0.5 + Math.random() * 2)),
+      foreignHoldingRate: Math.round(Math.random() * 50 * 100) / 100,
+      tradingValue: volume * price,
     };
   }
 

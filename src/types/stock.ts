@@ -28,6 +28,16 @@ export interface Quote {
   open: number;
   prevClose: number;
   timestamp: number;
+  // 확장 정보 (선택적)
+  high52w?: number; // 52주 최고가
+  low52w?: number; // 52주 최저가
+  marketCap?: number; // 시가총액 (억원)
+  per?: number; // PER
+  pbr?: number; // PBR
+  eps?: number; // EPS
+  bps?: number; // BPS
+  foreignHoldingRate?: number; // 외국인 보유비율 (%)
+  tradingValue?: number; // 거래대금 (원)
 }
 
 // 호가 정보

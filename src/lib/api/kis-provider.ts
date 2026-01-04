@@ -397,14 +397,23 @@ export class KISProvider implements StockDataProvider {
     try {
       const data = await this.request<{
         output: {
-          stck_prpr: string;
-          prdy_vrss: string;
-          prdy_ctrt: string;
-          acml_vol: string;
-          stck_hgpr: string;
-          stck_lwpr: string;
-          stck_oprc: string;
-          stck_sdpr: string;
+          stck_prpr: string; // 현재가
+          prdy_vrss: string; // 전일대비
+          prdy_ctrt: string; // 전일대비율
+          acml_vol: string; // 누적거래량
+          stck_hgpr: string; // 당일고가
+          stck_lwpr: string; // 당일저가
+          stck_oprc: string; // 시가
+          stck_sdpr: string; // 전일종가
+          stck_mxpr: string; // 52주 최고가
+          stck_llam: string; // 52주 최저가
+          hts_avls: string; // 시가총액 (억원)
+          per: string; // PER
+          pbr: string; // PBR
+          eps: string; // EPS
+          bps: string; // BPS
+          hts_frgn_ehrt: string; // 외국인소진율
+          acml_tr_pbmn: string; // 누적거래대금
         };
       }>(
         '/uapi/domestic-stock/v1/quotations/inquire-price',
@@ -419,15 +428,25 @@ export class KISProvider implements StockDataProvider {
 
       const result: Quote = {
         symbol,
-        price: parseInt(data.output.stck_prpr),
-        change: parseInt(data.output.prdy_vrss),
-        changePercent: parseFloat(data.output.prdy_ctrt),
-        volume: parseInt(data.output.acml_vol),
-        high: parseInt(data.output.stck_hgpr),
-        low: parseInt(data.output.stck_lwpr),
-        open: parseInt(data.output.stck_oprc),
-        prevClose: parseInt(data.output.stck_sdpr),
+        price: parseInt(data.output.stck_prpr) || 0,
+        change: parseInt(data.output.prdy_vrss) || 0,
+        changePercent: parseFloat(data.output.prdy_ctrt) || 0,
+        volume: parseInt(data.output.acml_vol) || 0,
+        high: parseInt(data.output.stck_hgpr) || 0,
+        low: parseInt(data.output.stck_lwpr) || 0,
+        open: parseInt(data.output.stck_oprc) || 0,
+        prevClose: parseInt(data.output.stck_sdpr) || 0,
         timestamp: Date.now(),
+        // 확장 정보
+        high52w: parseInt(data.output.stck_mxpr) || undefined,
+        low52w: parseInt(data.output.stck_llam) || undefined,
+        marketCap: parseInt(data.output.hts_avls) || undefined,
+        per: parseFloat(data.output.per) || undefined,
+        pbr: parseFloat(data.output.pbr) || undefined,
+        eps: parseInt(data.output.eps) || undefined,
+        bps: parseInt(data.output.bps) || undefined,
+        foreignHoldingRate: parseFloat(data.output.hts_frgn_ehrt) || undefined,
+        tradingValue: parseInt(data.output.acml_tr_pbmn) || undefined,
       };
 
       // 캐시 저장 (30초 TTL)
