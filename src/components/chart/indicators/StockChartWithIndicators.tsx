@@ -13,9 +13,9 @@ import {
   Time,
 } from 'lightweight-charts';
 import type { OHLCV, TimeFrame } from '@/types';
-import type { IndicatorConfig, MAConfig, BollingerConfig, RSIConfig, MACDConfig } from './types';
+import type { IndicatorConfig, MAConfig, BollingerConfig, RSIConfig, MACDConfig, StochasticConfig } from './types';
 import { isOverlayIndicator } from './types';
-import { sma, ema, bollingerBands, rsi, macd } from '@/lib/indicators';
+import { sma, ema, bollingerBands, rsi, macd, stochastic } from '@/lib/indicators';
 
 export interface StockChartWithIndicatorsProps {
   /** OHLCV 데이터 */
@@ -95,10 +95,12 @@ export function StockChartWithIndicators({
   const mainContainerRef = useRef<HTMLDivElement>(null);
   const rsiContainerRef = useRef<HTMLDivElement>(null);
   const macdContainerRef = useRef<HTMLDivElement>(null);
+  const stochasticContainerRef = useRef<HTMLDivElement>(null);
 
   const mainChartRef = useRef<IChartApi | null>(null);
   const rsiChartRef = useRef<IChartApi | null>(null);
   const macdChartRef = useRef<IChartApi | null>(null);
+  const stochasticChartRef = useRef<IChartApi | null>(null);
 
   const seriesRefs = useRef<Map<string, ISeriesApi<'Line' | 'Histogram' | 'Candlestick'>>>(
     new Map()
@@ -112,6 +114,7 @@ export function StockChartWithIndicators({
 
   const hasRSI = enabledIndicators.some((i) => i.type === 'rsi');
   const hasMACD = enabledIndicators.some((i) => i.type === 'macd');
+  const hasStochastic = enabledIndicators.some((i) => i.type === 'stochastic');
 
   // 메인 차트 초기화
   useEffect(() => {
@@ -283,6 +286,74 @@ export function StockChartWithIndicators({
     };
   }, [hasMACD, subChartHeight]);
 
+  // Stochastic 서브차트
+  useEffect(() => {
+    if (!hasStochastic || !stochasticContainerRef.current) {
+      if (stochasticChartRef.current) {
+        stochasticChartRef.current.remove();
+        stochasticChartRef.current = null;
+      }
+      return;
+    }
+
+    const chart = createChart(stochasticContainerRef.current, {
+      width: stochasticContainerRef.current.clientWidth,
+      height: subChartHeight,
+      layout: {
+        background: { type: ColorType.Solid, color: '#ffffff' },
+        textColor: '#333',
+      },
+      grid: {
+        vertLines: { color: '#f0f0f0' },
+        horzLines: { color: '#f0f0f0' },
+      },
+      crosshair: { mode: CrosshairMode.Normal },
+      rightPriceScale: {
+        borderColor: '#e0e0e0',
+        scaleMargins: { top: 0.1, bottom: 0.1 },
+      },
+      timeScale: { visible: false },
+    });
+
+    // %K 라인 (빠른 선)
+    const kSeries = chart.addLineSeries({
+      color: '#4CAF50',
+      lineWidth: 2,
+    });
+    // %D 라인 (느린 선)
+    const dSeries = chart.addLineSeries({
+      color: '#FF5722',
+      lineWidth: 1,
+    });
+
+    seriesRefs.current.set('stochastic-k', kSeries);
+    seriesRefs.current.set('stochastic-d', dSeries);
+
+    stochasticChartRef.current = chart;
+
+    const currentSeriesRefs = seriesRefs.current;
+    return () => {
+      chart.remove();
+      stochasticChartRef.current = null;
+      currentSeriesRefs.delete('stochastic-k');
+      currentSeriesRefs.delete('stochastic-d');
+    };
+  }, [hasStochastic, subChartHeight]);
+
+  // 시리즈 제거 함수
+  const removeOverlaySeries = useCallback((seriesKey: string) => {
+    const chart = mainChartRef.current;
+    const series = seriesRefs.current.get(seriesKey);
+    if (chart && series) {
+      try {
+        chart.removeSeries(series);
+      } catch {
+        // 시리즈가 이미 제거되었거나 차트가 유효하지 않은 경우 무시
+      }
+      seriesRefs.current.delete(seriesKey);
+    }
+  }, []);
+
   // 오버레이 지표 업데이트 함수
   const updateOverlayIndicator = useCallback(
     (ohlcv: OHLCV[], config: IndicatorConfig) => {
@@ -298,6 +369,11 @@ export function StockChartWithIndicators({
           lineWidth: 1,
         });
         seriesRefs.current.set(seriesKey, series);
+      } else {
+        // 기존 시리즈가 있으면 색상 업데이트
+        (series as ISeriesApi<'Line'>).applyOptions({
+          color: config.color || '#2196F3',
+        });
       }
 
       let values: (number | null)[] = [];
@@ -352,9 +428,47 @@ export function StockChartWithIndicators({
     []
   );
 
+  // 비활성화된 오버레이 지표 제거
+  const cleanupDisabledOverlays = useCallback(
+    (allIndicators: IndicatorConfig[]) => {
+      // 차트가 아직 초기화되지 않았으면 스킵
+      if (!mainChartRef.current) return;
+
+      const enabledKeys = new Set<string>();
+
+      // 활성화된 지표의 시리즈 키 수집
+      for (const config of allIndicators) {
+        if (!config.enabled || !isOverlayIndicator(config.type)) continue;
+
+        if (config.type === 'sma' || config.type === 'ema') {
+          enabledKeys.add(`${config.type}-${(config as MAConfig).period}`);
+        } else if (config.type === 'bollinger') {
+          enabledKeys.add('bollinger-');
+          enabledKeys.add('bollinger-upper');
+          enabledKeys.add('bollinger-lower');
+        }
+      }
+
+      // 비활성화된 시리즈 제거
+      const keysToRemove: string[] = [];
+      seriesRefs.current.forEach((_, key) => {
+        // candle, volume, rsi, macd, stochastic 시리즈는 건드리지 않음
+        if (key === 'candle' || key === 'volume' || key === 'rsi' || key.startsWith('macd') || key.startsWith('stochastic')) {
+          return;
+        }
+        if (!enabledKeys.has(key)) {
+          keysToRemove.push(key);
+        }
+      });
+
+      keysToRemove.forEach(removeOverlaySeries);
+    },
+    [removeOverlaySeries]
+  );
+
   // 데이터 및 지표 업데이트
   useEffect(() => {
-    if (data.length === 0) return;
+    if (data.length === 0 || !mainChartRef.current) return;
 
     // 캔들 데이터
     const candleSeries = seriesRefs.current.get('candle');
@@ -369,6 +483,9 @@ export function StockChartWithIndicators({
         toVolumeData(data, upColor + '80', downColor + '80')
       );
     }
+
+    // 비활성화된 오버레이 지표 제거 (전체 indicators 배열 전달)
+    cleanupDisabledOverlays(indicators);
 
     // 오버레이 지표 업데이트
     enabledIndicators
@@ -422,11 +539,32 @@ export function StockChartWithIndicators({
       }
     }
 
+    // Stochastic 업데이트
+    const stochasticConfig = enabledIndicators.find((i) => i.type === 'stochastic') as StochasticConfig | undefined;
+    if (stochasticConfig) {
+      const stochasticResult = stochastic(
+        data,
+        stochasticConfig.kPeriod,
+        stochasticConfig.dPeriod
+      );
+
+      const kSeries = seriesRefs.current.get('stochastic-k');
+      const dSeries = seriesRefs.current.get('stochastic-d');
+
+      if (kSeries) {
+        (kSeries as ISeriesApi<'Line'>).setData(toLineData(data, stochasticResult.k));
+      }
+      if (dSeries) {
+        (dSeries as ISeriesApi<'Line'>).setData(toLineData(data, stochasticResult.d));
+      }
+    }
+
     // 차트 맞춤
     mainChartRef.current?.timeScale().fitContent();
     rsiChartRef.current?.timeScale().fitContent();
     macdChartRef.current?.timeScale().fitContent();
-  }, [data, enabledIndicators, upColor, downColor, updateOverlayIndicator]);
+    stochasticChartRef.current?.timeScale().fitContent();
+  }, [data, indicators, enabledIndicators, upColor, downColor, updateOverlayIndicator, cleanupDisabledOverlays]);
 
   // 타임프레임 변경 핸들러
   const handleTimeFrameChange = useCallback(
@@ -490,6 +628,18 @@ export function StockChartWithIndicators({
             ref={macdContainerRef}
             style={{ width: '100%', height: subChartHeight }}
             data-testid="macd-chart"
+          />
+        </div>
+      )}
+
+      {/* Stochastic 서브차트 */}
+      {hasStochastic && (
+        <div className="mt-1">
+          <div className="text-xs text-gray-500">Stochastic (%K, %D)</div>
+          <div
+            ref={stochasticContainerRef}
+            style={{ width: '100%', height: subChartHeight }}
+            data-testid="stochastic-chart"
           />
         </div>
       )}

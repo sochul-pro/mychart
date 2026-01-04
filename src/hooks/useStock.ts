@@ -77,14 +77,23 @@ export function useStockOHLCV(
   });
 }
 
-export function useStock(symbol: string) {
+interface UseStockWithTimeFrameOptions {
+  symbol: string;
+  timeFrame?: TimeFrame;
+}
+
+export function useStock(symbolOrOptions: string | UseStockWithTimeFrameOptions) {
+  const { symbol, timeFrame = 'D' } = typeof symbolOrOptions === 'string'
+    ? { symbol: symbolOrOptions, timeFrame: 'D' as TimeFrame }
+    : symbolOrOptions;
+
   const stockQuery = useQuery({
     queryKey: ['stock', 'data', symbol],
     queryFn: () => fetchStock(symbol),
     enabled: !!symbol,
   });
 
-  const ohlcvQuery = useStockOHLCV({ symbol, timeFrame: 'D', limit: 252 });
+  const ohlcvQuery = useStockOHLCV({ symbol, timeFrame, limit: 252 });
 
   return {
     info: stockQuery.data?.info as StockInfo | null,

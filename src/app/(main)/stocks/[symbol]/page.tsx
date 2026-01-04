@@ -1,7 +1,7 @@
 'use client';
 
-import { use, useState, useMemo } from 'react';
-import { ArrowUp, ArrowDown, Plus, Loader2, Star, Settings2, ChevronDown, Check } from 'lucide-react';
+import { use, useState, useMemo, useCallback } from 'react';
+import { ArrowUp, ArrowDown, Plus, Loader2, Star, Settings2, ChevronDown, Check, Save } from 'lucide-react';
 import { StockChartWithIndicators, IndicatorPanel } from '@/components/chart/indicators';
 import type { IndicatorConfig } from '@/components/chart/indicators/types';
 import type { TimeFrame } from '@/types';
@@ -27,7 +27,9 @@ import {
 import { NewsFeed } from '@/components/news';
 import { useStock } from '@/hooks/useStock';
 import { useWatchlist } from '@/hooks/useWatchlist';
+import { useChartSettings } from '@/hooks/useChartSettings';
 import { cn } from '@/lib/utils';
+import { useDebouncedCallback } from 'use-debounce';
 
 // 숫자 포맷팅 유틸리티
 function formatMarketCap(value: number): string {
@@ -47,13 +49,31 @@ interface StockDetailPageProps {
 
 export default function StockDetailPage({ params }: StockDetailPageProps) {
   const { symbol } = use(params);
-  const { info, quote, ohlcv, isLoading, error } = useStock(symbol);
+  const [timeFrame, setTimeFrame] = useState<TimeFrame>('D');
+  const { info, quote, ohlcv, isLoading, error } = useStock({ symbol, timeFrame });
   const { groups, addItem, isAddingItem } = useWatchlist();
+  const { settings, updateIndicators, isSaving } = useChartSettings();
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState<string>('');
-  const [timeFrame, setTimeFrame] = useState<TimeFrame>('D');
   const [isIndicatorPanelOpen, setIsIndicatorPanelOpen] = useState(false);
+
+  // 로컬 지표 상태 (즉시 UI 반영용)
+  const [localIndicators, setLocalIndicators] = useState<IndicatorConfig[] | null>(null);
+
+  // 실제 사용할 지표 (로컬 > 서버)
+  const indicators = localIndicators ?? settings.indicators;
+
+  // 디바운스된 저장 함수 (500ms 후 서버에 저장)
+  const debouncedSave = useDebouncedCallback((newIndicators: IndicatorConfig[]) => {
+    updateIndicators(newIndicators);
+  }, 500);
+
+  // 지표 변경 핸들러
+  const handleIndicatorsChange = useCallback((newIndicators: IndicatorConfig[]) => {
+    setLocalIndicators(newIndicators); // 즉시 UI 반영
+    debouncedSave(newIndicators); // 디바운스 후 서버 저장
+  }, [debouncedSave]);
 
   // 관심종목 등록 여부 확인
   const watchlistInfo = useMemo(() => {
@@ -65,15 +85,6 @@ export default function StockDetailPage({ params }: StockDetailPageProps) {
     }
     return { isRegistered: false, groupName: null, groupId: null };
   }, [groups, symbol]);
-
-  // 지표 설정 상태
-  const [indicators, setIndicators] = useState<IndicatorConfig[]>([
-    { type: 'sma', period: 20, color: '#2196F3', enabled: true },
-    { type: 'sma', period: 60, color: '#FF9800', enabled: true },
-    { type: 'bollinger', period: 20, stdDev: 2, color: '#9C27B0', enabled: false },
-    { type: 'rsi', period: 14, overbought: 70, oversold: 30, color: '#E91E63', enabled: false },
-    { type: 'macd', fastPeriod: 12, slowPeriod: 26, signalPeriod: 9, color: '#00BCD4', enabled: false },
-  ]);
 
   const handleAddToWatchlist = async () => {
     if (!selectedGroupId || !info) return;
@@ -252,21 +263,29 @@ export default function StockDetailPage({ params }: StockDetailPageProps) {
           <CardHeader className="pb-2 sm:pb-4">
             <div className="flex items-center justify-between">
               <CardTitle>차트</CardTitle>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsIndicatorPanelOpen(!isIndicatorPanelOpen)}
-                className="gap-2"
-              >
-                <Settings2 className="h-4 w-4" />
-                <span className="hidden sm:inline">지표 설정</span>
-                <ChevronDown
-                  className={cn(
-                    'h-4 w-4 transition-transform',
-                    isIndicatorPanelOpen && 'rotate-180'
-                  )}
-                />
-              </Button>
+              <div className="flex items-center gap-2">
+                {isSaving && (
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    저장 중...
+                  </span>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsIndicatorPanelOpen(!isIndicatorPanelOpen)}
+                  className="gap-2"
+                >
+                  <Settings2 className="h-4 w-4" />
+                  <span className="hidden sm:inline">지표 설정</span>
+                  <ChevronDown
+                    className={cn(
+                      'h-4 w-4 transition-transform',
+                      isIndicatorPanelOpen && 'rotate-180'
+                    )}
+                  />
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="p-2 sm:p-6 pt-0">
@@ -275,7 +294,7 @@ export default function StockDetailPage({ params }: StockDetailPageProps) {
               <div className="mb-4">
                 <IndicatorPanel
                   indicators={indicators}
-                  onIndicatorsChange={setIndicators}
+                  onIndicatorsChange={handleIndicatorsChange}
                 />
               </div>
             )}
