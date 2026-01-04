@@ -1,13 +1,9 @@
 'use client';
 
-import { use, useState, useMemo, useCallback } from 'react';
-import { ArrowUp, ArrowDown, Plus, Loader2, Star, Settings2, ChevronDown, Check, Save } from 'lucide-react';
-import { StockChartWithIndicators, IndicatorPanel } from '@/components/chart/indicators';
-import type { IndicatorConfig } from '@/components/chart/indicators/types';
-import type { TimeFrame } from '@/types';
+import { use, useState, useMemo } from 'react';
+import { Plus, Loader2, Star, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -25,23 +21,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { NewsFeed } from '@/components/news';
+import { StockQuoteCard, StockChartCard } from '@/components/stock';
 import { useStock } from '@/hooks/useStock';
 import { useWatchlist } from '@/hooks/useWatchlist';
-import { useChartSettings } from '@/hooks/useChartSettings';
-import { cn } from '@/lib/utils';
-import { useDebouncedCallback } from 'use-debounce';
-
-// 숫자 포맷팅 유틸리티
-function formatMarketCap(value: number): string {
-  if (value >= 10000) return `${(value / 10000).toFixed(1)}조`;
-  return `${value.toLocaleString()}억`;
-}
-
-function formatTradingValue(value: number): string {
-  if (value >= 100000000) return `${(value / 100000000).toFixed(0)}억`;
-  if (value >= 10000) return `${(value / 10000).toFixed(0)}만`;
-  return value.toLocaleString();
-}
+import type { TimeFrame } from '@/types';
 
 interface StockDetailPageProps {
   params: Promise<{ symbol: string }>;
@@ -52,30 +35,10 @@ export default function StockDetailPage({ params }: StockDetailPageProps) {
   const [timeFrame, setTimeFrame] = useState<TimeFrame>('D');
   const { info, quote, ohlcv, isLoading, error } = useStock({ symbol, timeFrame });
   const { groups, addItem, isAddingItem } = useWatchlist();
-  const { settings, updateIndicators, isSaving } = useChartSettings();
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState<string>('');
-  const [isIndicatorPanelOpen, setIsIndicatorPanelOpen] = useState(false);
 
-  // 로컬 지표 상태 (즉시 UI 반영용)
-  const [localIndicators, setLocalIndicators] = useState<IndicatorConfig[] | null>(null);
-
-  // 실제 사용할 지표 (로컬 > 서버)
-  const indicators = localIndicators ?? settings.indicators;
-
-  // 디바운스된 저장 함수 (500ms 후 서버에 저장)
-  const debouncedSave = useDebouncedCallback((newIndicators: IndicatorConfig[]) => {
-    updateIndicators(newIndicators);
-  }, 500);
-
-  // 지표 변경 핸들러
-  const handleIndicatorsChange = useCallback((newIndicators: IndicatorConfig[]) => {
-    setLocalIndicators(newIndicators); // 즉시 UI 반영
-    debouncedSave(newIndicators); // 디바운스 후 서버 저장
-  }, [debouncedSave]);
-
-  // 관심종목 등록 여부 확인
   const watchlistInfo = useMemo(() => {
     for (const group of groups) {
       const item = group.items.find((item) => item.symbol === symbol);
@@ -118,206 +81,33 @@ export default function StockDetailPage({ params }: StockDetailPageProps) {
 
   return (
     <div className="container mx-auto py-6 px-4">
-      {/* 시세 정보 - 2컬럼 레이아웃 */}
-      <Card className="mb-6">
-        <CardContent className="pt-6">
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
-            {/* 왼쪽: 종목 정보 + 현재가 + 기본 시세 정보 */}
-            <div>
-              {/* 종목 정보 */}
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                    <h1 className="text-xl sm:text-2xl font-bold">
-                      {info.name.includes('우선주')
-                        ? info.name.replace('우선주', '') + '(우)'
-                        : info.name.replace('보통주', '')}
-                    </h1>
-                    <Badge variant="outline">{info.market}</Badge>
-                    {info.sector && (
-                      <Badge variant="secondary">{info.sector}</Badge>
-                    )}
-                  </div>
-                  <p className="text-muted-foreground mt-1">{info.symbol.slice(-6)}</p>
-                </div>
-                {watchlistInfo.isRegistered ? (
-                  <Button variant="secondary" size="sm" disabled>
-                    <Check className="h-4 w-4 mr-1" />
-                    <Star className="h-4 w-4 mr-1 fill-yellow-400 text-yellow-400" />
-                    {watchlistInfo.groupName}
-                  </Button>
-                ) : (
-                  <Button onClick={() => setIsAddDialogOpen(true)} size="sm">
-                    <Plus className="h-4 w-4 mr-1" />
-                    관심 추가
-                  </Button>
-                )}
-              </div>
-
-              {/* 현재가 */}
-              <div className="flex flex-wrap items-baseline gap-2 sm:gap-4">
-                <span className="text-3xl sm:text-4xl font-bold">
-                  {quote.price.toLocaleString()}
-                </span>
-                <span className="text-base sm:text-lg text-muted-foreground">원</span>
-                <div
-                  className={cn(
-                    'flex items-center gap-1 text-base sm:text-lg font-medium',
-                    quote.changePercent > 0
-                      ? 'text-red-500'
-                      : quote.changePercent < 0
-                      ? 'text-blue-500'
-                      : ''
-                  )}
-                >
-                  {quote.changePercent > 0 ? (
-                    <ArrowUp className="h-4 w-4 sm:h-5 sm:w-5" />
-                  ) : quote.changePercent < 0 ? (
-                    <ArrowDown className="h-4 w-4 sm:h-5 sm:w-5" />
-                  ) : null}
-                  {quote.change > 0 ? '+' : ''}
-                  {quote.change.toLocaleString()} ({quote.changePercent > 0 ? '+' : ''}
-                  {quote.changePercent.toFixed(2)}%)
-                </div>
-              </div>
-
-              {/* OHLC + 거래량 + 거래대금 */}
-              <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 mt-6">
-                <div>
-                  <p className="text-xs sm:text-sm text-muted-foreground">시가</p>
-                  <p className="font-medium text-sm sm:text-base">{quote.open.toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-xs sm:text-sm text-muted-foreground">고가</p>
-                  <p className="font-medium text-sm sm:text-base text-red-500">{quote.high.toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-xs sm:text-sm text-muted-foreground">저가</p>
-                  <p className="font-medium text-sm sm:text-base text-blue-500">{quote.low.toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-xs sm:text-sm text-muted-foreground">거래량</p>
-                  <p className="font-medium text-sm sm:text-base">
-                    {quote.volume >= 1000000
-                      ? `${(quote.volume / 1000000).toFixed(1)}M`
-                      : `${(quote.volume / 1000).toFixed(0)}K`}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs sm:text-sm text-muted-foreground">거래대금</p>
-                  <p className="font-medium text-sm sm:text-base">
-                    {quote.tradingValue !== undefined
-                      ? formatTradingValue(quote.tradingValue)
-                      : '-'}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* 오른쪽: 투자 정보 (확장 정보) */}
-            {(quote.marketCap || quote.per || quote.high52w) && (
-              <div className="border-t lg:border-t-0 lg:border-l pt-4 lg:pt-0 lg:pl-6">
-                <p className="text-sm font-semibold text-muted-foreground mb-3">투자 정보</p>
-                <div className="space-y-2">
-                  {quote.marketCap !== undefined && (
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">시가총액</span>
-                      <span className="text-sm font-medium">{formatMarketCap(quote.marketCap)}</span>
-                    </div>
-                  )}
-                  {quote.per !== undefined && (
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">PER</span>
-                      <span className="text-sm font-medium">{quote.per.toFixed(2)}</span>
-                    </div>
-                  )}
-                  {quote.pbr !== undefined && (
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">PBR</span>
-                      <span className="text-sm font-medium">{quote.pbr.toFixed(2)}</span>
-                    </div>
-                  )}
-                  {quote.foreignHoldingRate !== undefined && (
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">외국인보유</span>
-                      <span className="text-sm font-medium">{quote.foreignHoldingRate.toFixed(2)}%</span>
-                    </div>
-                  )}
-                  {(quote.high52w !== undefined || quote.low52w !== undefined) && (
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">52주 고/저</span>
-                      <span className="text-sm font-medium">
-                        <span className="text-red-500">{quote.high52w?.toLocaleString() ?? '-'}</span>
-                        {' / '}
-                        <span className="text-blue-500">{quote.low52w?.toLocaleString() ?? '-'}</span>
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 차트 영역 */}
-      <Card className="mb-6">
-        <CardHeader className="pb-1 sm:pb-2">
-          <div className="flex items-center justify-between">
-            <CardTitle>차트</CardTitle>
-            <div className="flex items-center gap-2">
-              {isSaving && (
-                <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  저장 중...
-                </span>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsIndicatorPanelOpen(!isIndicatorPanelOpen)}
-                className="gap-2"
-              >
-                <Settings2 className="h-4 w-4" />
-                <span className="hidden sm:inline">지표 설정</span>
-                <ChevronDown
-                  className={cn(
-                    'h-4 w-4 transition-transform',
-                    isIndicatorPanelOpen && 'rotate-180'
-                  )}
-                />
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="p-2 sm:p-6 pt-0">
-          {/* 지표 설정 패널 */}
-          {isIndicatorPanelOpen && (
-            <div className="mb-4">
-              <IndicatorPanel
-                indicators={indicators}
-                onIndicatorsChange={handleIndicatorsChange}
-              />
-            </div>
-          )}
-
-          {/* 차트 */}
-          {ohlcv && ohlcv.length > 0 ? (
-            <StockChartWithIndicators
-              data={ohlcv}
-              indicators={indicators}
-              height={600}
-              showVolume={true}
-              timeFrame={timeFrame}
-              onTimeFrameChange={setTimeFrame}
-            />
+      {/* 시세 정보 카드 */}
+      <StockQuoteCard
+        info={info}
+        quote={quote}
+        rightContent={
+          watchlistInfo.isRegistered ? (
+            <Button variant="secondary" size="sm" disabled>
+              <Check className="h-4 w-4 mr-1" />
+              <Star className="h-4 w-4 mr-1 fill-yellow-400 text-yellow-400" />
+              {watchlistInfo.groupName}
+            </Button>
           ) : (
-            <div className="h-[300px] sm:h-[400px] flex items-center justify-center bg-muted/30 rounded-lg">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            <Button onClick={() => setIsAddDialogOpen(true)} size="sm">
+              <Plus className="h-4 w-4 mr-1" />
+              관심 추가
+            </Button>
+          )
+        }
+      />
+
+      {/* 차트 카드 */}
+      <StockChartCard
+        ohlcv={ohlcv}
+        timeFrame={timeFrame}
+        onTimeFrameChange={setTimeFrame}
+        height={600}
+      />
 
       {/* 관련 뉴스 */}
       <Card>
