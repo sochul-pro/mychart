@@ -5,6 +5,13 @@ import { KISProvider } from './kis-provider';
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
 
+// Mock fs 모듈 (테스트 시 실제 파일에 토큰 저장 방지)
+vi.mock('fs', () => ({
+  existsSync: vi.fn(() => false),
+  readFileSync: vi.fn(() => '{}'),
+  writeFileSync: vi.fn(),
+}));
+
 describe('KISProvider', () => {
   const config = {
     appKey: 'test-app-key',
