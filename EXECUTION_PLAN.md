@@ -567,6 +567,73 @@ npm run test:e2e:report # 테스트 리포트
 
 ---
 
+## 보완 사항 (Maintenance)
+
+### MAINT-001: 테스트 수정 및 안정화 ✅
+**설명**: 실패 테스트 수정 및 테스트 커버리지 개선
+**범위**:
+- KIS Provider 테스트: Mock fetch에 `text()` 메서드 추가
+- IndicatorPanel 테스트: 컴포넌트 구조 변경 반영 (testid 수정)
+- WatchlistGroupCard 테스트: `useStockQuote` 훅 mock 추가
+- WatchlistItemRow 테스트: Hook mock 및 테이블 UI assertion 업데이트
+
+**결과**:
+- 테스트 성공률: 90.3% → 97.8%
+- 실패 테스트: 23개 → 5개 (KIS Provider 환경 의존 테스트 제외)
+
+**산출물**:
+- `src/lib/api/kis-provider.test.ts` (수정)
+- `src/components/chart/indicators/IndicatorPanel.test.tsx` (수정)
+- `src/components/watchlist/WatchlistGroupCard.test.tsx` (수정)
+- `src/components/watchlist/WatchlistItemRow.test.tsx` (수정)
+
+**완료**: 2026-01-09 (#43)
+
+---
+
+### MAINT-002: API 입력값 검증 (보안 강화) ✅
+**설명**: API 쿼리 파라미터 검증 유틸리티 및 적용
+**범위**:
+- 입력 검증 유틸리티 생성 (`validation.ts`)
+  - `validateLimit()`: 숫자 범위 검증 및 정규화
+  - `safeJsonParse()`: 안전한 JSON 파싱 (try-catch 래핑)
+  - `validateSymbol()`: 종목코드 유효성 검사 (6자리/12자리)
+  - `normalizeSymbol()`: 종목코드 정규화 (12자리 → 6자리)
+- OHLCV API: `limit` 범위 검증 (1-500)
+- Screener API: `safeJsonParse` 적용, 파라미터 범위 검증
+- News API: `limit` 범위 검증 (1-100)
+
+**산출물**:
+- `src/lib/validation.ts` (신규)
+- `src/lib/validation.test.ts` (신규, 19개 테스트)
+- `src/app/api/stocks/[symbol]/ohlcv/route.ts` (수정)
+- `src/app/api/screener/route.ts` (수정)
+- `src/app/api/news/route.ts` (수정)
+
+**완료**: 2026-01-09 (#43)
+
+---
+
+### MAINT-003: 클라이언트 에러 바운더리 ✅
+**설명**: React Error Boundary 컴포넌트 및 주요 페이지 적용
+**범위**:
+- ErrorBoundary 컴포넌트 생성
+  - `ErrorBoundary`: 범용 클래스 컴포넌트 (fallback, onError, message props)
+  - `ChartErrorBoundary`: 차트 전용 래퍼 (400px 높이 fallback)
+  - `NewsErrorBoundary`: 뉴스 전용 래퍼 (간결한 fallback)
+- 종목 상세 페이지 적용
+  - `StockChartCard` → `ChartErrorBoundary`로 래핑
+  - `NewsFeed` → `NewsErrorBoundary`로 래핑
+
+**산출물**:
+- `src/components/ErrorBoundary.tsx` (신규)
+- `src/components/ErrorBoundary.test.tsx` (신규, 10개 테스트)
+- `src/app/(main)/stocks/[symbol]/page.tsx` (수정)
+
+**완료**: 2026-01-09 (#43)
+
+---
+
 ## 태스크 의존성 다이어그램
 
 ```
@@ -631,6 +698,7 @@ TASK-016 + TASK-014 + TASK-012 + TASK-015
 | 0.7 | 2026-01-04 | TASK-004, TASK-013, TASK-014 스크리너 기능 개선 (#40 - HTS 조회상위 API 연동, 순위 조건 필터 기능) |
 | 0.8 | 2026-01-04 | TASK-012 종목 검색 기능 추가 (#41 - 혼합 검색 방식, 동적 마스터 데이터) |
 | 0.9 | 2026-01-09 | 미완료 태스크 전체 완료 (#42 - TASK-010 조건빌더UI, TASK-018 API연동, TASK-019~021 E2E테스트/성능/반응형) |
+| 1.0 | 2026-01-09 | 보완 사항 섹션 추가 (#43 - MAINT-001~003: 테스트 수정, API 보안 강화, 에러 바운더리) |
 
 ---
 
@@ -645,10 +713,12 @@ TASK-016 + TASK-014 + TASK-012 + TASK-015
 | Phase 4 | 3 | 3 | 0 | 0 |
 | Phase 5 | 3 | 3 | 0 | 0 |
 | Phase 6 | 4 | 4 | 0 | 0 |
-| **합계** | **25** | **25** | **0** | **0** |
+| Maintenance | 3 | 3 | 0 | 0 |
+| **합계** | **28** | **28** | **0** | **0** |
 
-### 완료 태스크 (✅): 25개
-TASK-001~025 전체 완료
+### 완료 태스크 (✅): 28개
+- TASK-001~025 전체 완료
+- MAINT-001~003 보완 사항 완료
 
 ### 주요 완료 이력
 
@@ -659,3 +729,4 @@ TASK-001~025 전체 완료
 | 2026-01-03 | TASK-004~005, TASK-013~018, TASK-022~025 | #26~31 |
 | 2026-01-04 | 기능 개선 (관심종목, 스크리너) | #39~41 |
 | 2026-01-09 | TASK-010, 018~021 최종 완료 | #42 |
+| 2026-01-09 | 보완 사항 구현 (테스트/보안/에러 바운더리) | #43 |
