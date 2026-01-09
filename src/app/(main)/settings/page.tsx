@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { Save, Loader2 } from 'lucide-react';
+import { Save, Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -15,25 +15,93 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useUserSettings } from '@/hooks/useUserSettings';
+import type { TimeFrame } from '@/types';
+
+type SaveStatus = 'idle' | 'success' | 'error';
 
 export default function SettingsPage() {
   const { data: session } = useSession();
-  const [isSaving, setIsSaving] = useState(false);
+  const { profile, chartSettings, isLoading, isSaving, saveAllSettings } = useUserSettings();
 
-  // 차트 설정
-  const [defaultInterval, setDefaultInterval] = useState('D');
-  const [theme, setTheme] = useState('dark');
-
-  // 기본 지표 설정
+  // 로컬 상태
+  const [name, setName] = useState('');
+  const [defaultInterval, setDefaultInterval] = useState<TimeFrame>('D');
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [showMA, setShowMA] = useState(true);
   const [showVolume, setShowVolume] = useState(true);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
+
+  // 서버 데이터로 초기화
+  useEffect(() => {
+    if (profile) {
+      setName(profile.name || '');
+    }
+  }, [profile]);
+
+  useEffect(() => {
+    if (chartSettings) {
+      setDefaultInterval(chartSettings.defaultInterval);
+      setTheme(chartSettings.theme);
+      // 지표 설정에서 MA와 Volume 상태 추출
+      const hasMaEnabled = chartSettings.indicators.some(
+        (ind) => ind.type === 'sma' && ind.enabled
+      );
+      setShowMA(hasMaEnabled);
+    }
+  }, [chartSettings]);
 
   const handleSave = async () => {
-    setIsSaving(true);
-    // TODO: API 연동하여 설정 저장
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setIsSaving(false);
+    setSaveStatus('idle');
+
+    try {
+      // 지표 설정 업데이트
+      const updatedIndicators = chartSettings.indicators.map((ind) => {
+        if (ind.type === 'sma') {
+          // 20일, 60일 이평선만 showMA에 따라 토글
+          if (ind.period === 20 || ind.period === 60) {
+            return { ...ind, enabled: showMA };
+          }
+        }
+        return ind;
+      });
+
+      await saveAllSettings({
+        name: name !== (profile?.name || '') ? name : undefined,
+        defaultInterval,
+        theme,
+        indicators: updatedIndicators,
+      });
+
+      setSaveStatus('success');
+      setTimeout(() => setSaveStatus('idle'), 3000);
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+      setSaveStatus('error');
+      setTimeout(() => setSaveStatus('idle'), 3000);
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto py-4 sm:py-6 px-4 max-w-2xl">
+        <h1 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">설정</h1>
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <Card key={i}>
+              <CardHeader>
+                <div className="h-6 w-24 bg-muted animate-pulse rounded" />
+                <div className="h-4 w-48 bg-muted animate-pulse rounded" />
+              </CardHeader>
+              <CardContent>
+                <div className="h-10 bg-muted animate-pulse rounded" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto py-4 sm:py-6 px-4 max-w-2xl">
@@ -52,7 +120,7 @@ export default function SettingsPage() {
               <Input
                 id="email"
                 type="email"
-                value={session?.user?.email || ''}
+                value={session?.user?.email || profile?.email || ''}
                 disabled
                 className="bg-muted"
               />
@@ -64,7 +132,8 @@ export default function SettingsPage() {
               <Label htmlFor="name">이름</Label>
               <Input
                 id="name"
-                defaultValue={session?.user?.name || ''}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
                 placeholder="이름을 입력하세요"
               />
             </div>
@@ -80,7 +149,7 @@ export default function SettingsPage() {
           <CardContent className="space-y-4">
             <div className="grid gap-2">
               <Label htmlFor="interval">기본 시간 프레임</Label>
-              <Select value={defaultInterval} onValueChange={setDefaultInterval}>
+              <Select value={defaultInterval} onValueChange={(v) => setDefaultInterval(v as TimeFrame)}>
                 <SelectTrigger id="interval">
                   <SelectValue />
                 </SelectTrigger>
@@ -93,14 +162,13 @@ export default function SettingsPage() {
             </div>
             <div className="grid gap-2">
               <Label htmlFor="theme">테마</Label>
-              <Select value={theme} onValueChange={setTheme}>
+              <Select value={theme} onValueChange={(v) => setTheme(v as 'light' | 'dark')}>
                 <SelectTrigger id="theme">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="dark">다크</SelectItem>
                   <SelectItem value="light">라이트</SelectItem>
-                  <SelectItem value="system">시스템</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -165,8 +233,20 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        {/* 저장 버튼 */}
-        <div className="flex justify-end">
+        {/* 저장 버튼 및 상태 메시지 */}
+        <div className="flex items-center justify-end gap-3">
+          {saveStatus === 'success' && (
+            <div className="flex items-center gap-1 text-green-600 text-sm">
+              <CheckCircle className="h-4 w-4" />
+              <span>저장되었습니다</span>
+            </div>
+          )}
+          {saveStatus === 'error' && (
+            <div className="flex items-center gap-1 text-red-600 text-sm">
+              <XCircle className="h-4 w-4" />
+              <span>저장에 실패했습니다</span>
+            </div>
+          )}
           <Button onClick={handleSave} disabled={isSaving} className="w-full sm:w-auto">
             {isSaving ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
