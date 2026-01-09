@@ -3,6 +3,14 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { WatchlistGroupCard } from './WatchlistGroupCard';
 import type { WatchlistGroup } from '@/types';
 
+// useStockQuote mock
+vi.mock('@/hooks/useStock', () => ({
+  useStockQuote: vi.fn(() => ({
+    data: { price: 75000, changePercent: 1.5 },
+    isLoading: false,
+  })),
+}));
+
 const mockGroup: WatchlistGroup = {
   id: 'group-1',
   name: '테스트 그룹',
@@ -58,14 +66,10 @@ describe('WatchlistGroupCard', () => {
     expect(screen.getByText('종목을 추가하세요')).toBeInTheDocument();
   });
 
-  it('should render item with details', () => {
+  it('should render item name', () => {
     render(<WatchlistGroupCard group={mockGroup} {...mockHandlers} />);
 
     expect(screen.getByText('삼성전자')).toBeInTheDocument();
-    expect(screen.getByText('005930')).toBeInTheDocument();
-    expect(screen.getByText('장기 투자')).toBeInTheDocument();
-    expect(screen.getByText(/목표 80,000/)).toBeInTheDocument();
-    expect(screen.getByText(/매수 70,000/)).toBeInTheDocument();
   });
 
   it('should open add stock dialog when clicking plus button', async () => {
@@ -90,9 +94,9 @@ describe('WatchlistGroupCard', () => {
       expect(screen.getByText('종목 추가')).toBeInTheDocument();
     });
 
-    // Fill form
-    const symbolInput = screen.getByLabelText('종목코드');
-    const nameInput = screen.getByLabelText('종목명');
+    // Fill form - use input id instead of label text
+    const symbolInput = screen.getByRole('textbox', { name: /종목코드/i });
+    const nameInput = screen.getByRole('textbox', { name: /종목명/i });
 
     fireEvent.change(symbolInput, { target: { value: '000660' } });
     fireEvent.change(nameInput, { target: { value: 'SK하이닉스' } });

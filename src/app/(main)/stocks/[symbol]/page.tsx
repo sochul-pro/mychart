@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/select';
 import { NewsFeed } from '@/components/news';
 import { StockQuoteCard, StockChartCard } from '@/components/stock';
+import { ChartErrorBoundary, NewsErrorBoundary } from '@/components/ErrorBoundary';
 import { useStock } from '@/hooks/useStock';
 import { useWatchlist } from '@/hooks/useWatchlist';
 import type { TimeFrame } from '@/types';
@@ -101,15 +102,17 @@ export default function StockDetailPage({ params }: StockDetailPageProps) {
         }
       />
 
-      {/* 차트 카드 */}
-      <StockChartCard
-        ohlcv={ohlcv}
-        timeFrame={timeFrame}
-        onTimeFrameChange={setTimeFrame}
-        height={600}
-      />
+      {/* 차트 카드 (에러 바운더리로 감쌈) */}
+      <ChartErrorBoundary>
+        <StockChartCard
+          ohlcv={ohlcv}
+          timeFrame={timeFrame}
+          onTimeFrameChange={setTimeFrame}
+          height={600}
+        />
+      </ChartErrorBoundary>
 
-      {/* 관련 뉴스 */}
+      {/* 관련 뉴스 (에러 바운더리로 감쌈) */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -118,7 +121,9 @@ export default function StockDetailPage({ params }: StockDetailPageProps) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <NewsFeed symbol={symbol} limit={10} title="" height="300px" />
+          <NewsErrorBoundary>
+            <NewsFeed symbol={symbol} limit={10} title="" height="300px" />
+          </NewsErrorBoundary>
         </CardContent>
       </Card>
 

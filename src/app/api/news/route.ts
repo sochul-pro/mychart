@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getNewsProvider } from '@/lib/api/news-provider-factory';
+import { validateLimit } from '@/lib/validation';
 
 /**
  * 뉴스 조회 API
@@ -7,13 +8,23 @@ import { getNewsProvider } from '@/lib/api/news-provider-factory';
  * GET /api/news?symbols=005930,000660
  * GET /api/news?query=반도체
  * GET /api/news (최신 뉴스)
+ *
+ * @param symbol - 종목코드 (단일)
+ * @param symbols - 종목코드 (복수, 쉼표 구분)
+ * @param query - 검색어
+ * @param limit - 조회 개수 (1-100), 기본값: 20
  */
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const symbol = searchParams.get('symbol');
   const symbols = searchParams.get('symbols');
   const query = searchParams.get('query');
-  const limit = parseInt(searchParams.get('limit') || '20', 10);
+  // limit 범위 검증 (1 ~ 100)
+  const limit = validateLimit(searchParams.get('limit'), {
+    defaultValue: 20,
+    min: 1,
+    max: 100,
+  });
 
   try {
     const provider = getNewsProvider();

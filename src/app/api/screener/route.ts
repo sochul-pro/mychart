@@ -3,6 +3,7 @@ import { stockProvider } from '@/lib/api/provider-factory';
 import { KISProvider } from '@/lib/api/kis-provider';
 import { detectLeaderStocks, filterLeaderStocks } from '@/lib/screener';
 import { getFromMemory, setToMemory, CacheKeys, CACHE_TTL } from '@/lib/api/cache';
+import { validateLimit, safeJsonParse } from '@/lib/validation';
 import type { ScreenerFilter, RankingWeights, LeaderStock, SelectedRankings } from '@/types';
 import { DEFAULT_RANKING_WEIGHTS as defaultWeights, DEFAULT_SELECTED_RANKINGS } from '@/types/screener';
 
@@ -33,21 +34,31 @@ export async function GET(request: NextRequest) {
     popularityWeight: parseFloat(searchParams.get('popularityWeight') || '') || defaultWeights.popularityWeight,
   };
 
-  // 선택된 순위 조건 파싱
-  let selectedRankings: SelectedRankings = DEFAULT_SELECTED_RANKINGS;
-  try {
-    const selectedRankingsParam = searchParams.get('selectedRankings');
-    if (selectedRankingsParam) {
-      selectedRankings = { ...DEFAULT_SELECTED_RANKINGS, ...JSON.parse(selectedRankingsParam) };
-    }
-  } catch {
-    // JSON 파싱 실패 시 기본값 사용
-  }
+  // 선택된 순위 조건 파싱 (안전한 JSON 파싱)
+  const selectedRankings: SelectedRankings = {
+    ...DEFAULT_SELECTED_RANKINGS,
+    ...safeJsonParse<Partial<SelectedRankings>>(
+      searchParams.get('selectedRankings'),
+      {}
+    ),
+  };
 
-  // 추가 필터 옵션
-  const minRankingCount = parseInt(searchParams.get('minRankingCount') || '0', 10);
-  const minScore = parseInt(searchParams.get('minScore') || '0', 10);
-  const limit = parseInt(searchParams.get('limit') || '50', 10);
+  // 추가 필터 옵션 (범위 검증)
+  const minRankingCount = validateLimit(searchParams.get('minRankingCount'), {
+    defaultValue: 0,
+    min: 0,
+    max: 5,
+  });
+  const minScore = validateLimit(searchParams.get('minScore'), {
+    defaultValue: 0,
+    min: 0,
+    max: 1000,
+  });
+  const limit = validateLimit(searchParams.get('limit'), {
+    defaultValue: 50,
+    min: 1,
+    max: 100,
+  });
 
   try {
     // KIS Provider 확인
