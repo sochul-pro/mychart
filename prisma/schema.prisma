@@ -92,14 +92,15 @@ model ChartSettings {
 
 // 관심 테마
 model FavoriteTheme {
-  id        String   @id @default(cuid())
-  themeId   String   // 네이버 테마 코드
-  themeName String   // 테마명 (캐시)
-  order     Int      @default(0)
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(cuid())
+  themeId      String   // 네이버 테마 코드
+  themeName    String   // 테마명 (캐시)
+  order        Int      @default(0)
+  customStocks String[] // 사용자 선택 종목 코드 목록 (null/빈 배열이면 기본 주도주)
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@unique([userId, themeId])
   @@index([userId])

@@ -7,6 +7,7 @@ interface LocalFavoriteTheme {
   themeId: string;
   themeName: string;
   order: number;
+  customStocks: string[] | null;
   createdAt: number;
 }
 
@@ -18,6 +19,7 @@ interface FavoriteThemeStore {
   removeFavorite: (id: string) => void;
   removeByThemeId: (themeId: string) => void;
   reorderFavorites: (orderedIds: string[]) => void;
+  updateCustomStocks: (id: string, customStocks: string[] | null) => void;
   clearAll: () => void;
 
   // 유틸리티
@@ -45,6 +47,7 @@ export const useFavoriteThemeStore = create<FavoriteThemeStore>()(
           themeId,
           themeName,
           order: favorites.length,
+          customStocks: null,
           createdAt: Date.now(),
         };
 
@@ -79,6 +82,14 @@ export const useFavoriteThemeStore = create<FavoriteThemeStore>()(
           .filter(Boolean) as LocalFavoriteTheme[];
 
         set({ favorites: reordered });
+      },
+
+      updateCustomStocks: (id: string, customStocks: string[] | null) => {
+        const { favorites } = get();
+        const updated = favorites.map((f) =>
+          f.id === id ? { ...f, customStocks } : f
+        );
+        set({ favorites: updated });
       },
 
       clearAll: () => {

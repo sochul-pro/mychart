@@ -1,12 +1,12 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { ArrowLeft, Star, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { FavoriteThemeCard } from '@/components/themes';
+import { FavoriteThemeCard, StockSelectModal } from '@/components/themes';
 import { useThemes } from '@/hooks/useThemes';
 import { useFavoriteThemes } from '@/hooks/useFavoriteThemes';
 import { useFavoriteThemeStore } from '@/stores/favoriteThemeStore';
@@ -15,11 +15,28 @@ import type { FavoriteTheme, Theme } from '@/types';
 export default function FavoriteThemesPage() {
   const { data: session } = useSession();
 
+  // 종목 선택 모달 상태
+  const [stockSelectModal, setStockSelectModal] = useState<{
+    open: boolean;
+    favoriteId: string;
+    themeId: string;
+    themeName: string;
+    customStocks: string[] | null;
+  }>({
+    open: false,
+    favoriteId: '',
+    themeId: '',
+    themeName: '',
+    customStocks: null,
+  });
+
   // 관심 테마 (로그인 사용자)
   const {
     favorites: serverFavorites,
     removeFavorite: removeServerFavorite,
+    updateCustomStocks: updateServerCustomStocks,
     isLoading: isServerLoading,
+    isUpdatingCustomStocks,
   } = useFavoriteThemes({ enabled: !!session });
 
   // 관심 테마 (비로그인 사용자)
@@ -57,6 +74,40 @@ export default function FavoriteThemesPage() {
       }
     },
     [session, removeServerFavorite, localStore]
+  );
+
+  // 종목 선택 모달 열기
+  const handleEditStocks = useCallback(
+    (favoriteId: string, themeId: string) => {
+      const favorite = favorites.find((f) => f.id === favoriteId);
+      if (!favorite) return;
+
+      const theme = themeMap.get(themeId);
+      setStockSelectModal({
+        open: true,
+        favoriteId,
+        themeId,
+        themeName: theme?.name || favorite.themeName,
+        customStocks: favorite.customStocks || null,
+      });
+    },
+    [favorites, themeMap]
+  );
+
+  // 종목 선택 저장
+  const handleSaveCustomStocks = useCallback(
+    (selectedStocks: string[] | null) => {
+      if (session) {
+        updateServerCustomStocks({
+          id: stockSelectModal.favoriteId,
+          customStocks: selectedStocks,
+        });
+      } else {
+        localStore.updateCustomStocks(stockSelectModal.favoriteId, selectedStocks);
+      }
+      setStockSelectModal((prev) => ({ ...prev, open: false }));
+    },
+    [session, stockSelectModal.favoriteId, updateServerCustomStocks, localStore]
   );
 
   // 요약 정보
@@ -167,17 +218,29 @@ export default function FavoriteThemesPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {favorites.map((favorite) => (
             <FavoriteThemeCard
               key={favorite.id}
               favorite={favorite as FavoriteTheme}
               theme={themeMap.get(favorite.themeId) || null}
               onRemove={handleRemove}
+              onEditStocks={handleEditStocks}
             />
           ))}
         </div>
       )}
+
+      {/* 종목 선택 모달 */}
+      <StockSelectModal
+        open={stockSelectModal.open}
+        onOpenChange={(open) => setStockSelectModal((prev) => ({ ...prev, open }))}
+        themeId={stockSelectModal.themeId}
+        themeName={stockSelectModal.themeName}
+        currentSelection={stockSelectModal.customStocks}
+        onSave={handleSaveCustomStocks}
+        isSaving={isUpdatingCustomStocks}
+      />
     </div>
   );
 }

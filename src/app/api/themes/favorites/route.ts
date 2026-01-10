@@ -24,11 +24,12 @@ export async function GET() {
     });
 
     const response: FavoriteThemeListResponse = {
-      favorites: favorites.map((f: { id: string; themeId: string; themeName: string; order: number; createdAt: Date }) => ({
+      favorites: favorites.map((f: { id: string; themeId: string; themeName: string; order: number; customStocks: string[]; createdAt: Date }) => ({
         id: f.id,
         themeId: f.themeId,
         themeName: f.themeName,
         order: f.order,
+        customStocks: f.customStocks.length > 0 ? f.customStocks : null,
         createdAt: f.createdAt.getTime(),
       })),
       total: favorites.length,
@@ -109,6 +110,7 @@ export async function POST(request: NextRequest) {
       themeId: favorite.themeId,
       themeName: favorite.themeName,
       order: favorite.order,
+      customStocks: favorite.customStocks.length > 0 ? favorite.customStocks : null,
       createdAt: favorite.createdAt.getTime(),
     });
   } catch (error) {

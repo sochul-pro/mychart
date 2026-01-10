@@ -6,6 +6,14 @@ export interface LeadingStock {
   changePercent: number; // 등락률
 }
 
+// 테마 내 종목 상세 정보 (모멘텀 점수 계산용)
+export interface ThemeStock extends LeadingStock {
+  volume: number; // 거래량
+  tradingValue: number; // 거래대금 (백만원)
+  marketCap: number; // 시가총액 (억원)
+  momentumScore?: number; // 모멘텀 점수 (계산된 값)
+}
+
 // 테마 기본 정보
 export interface Theme {
   id: string; // 테마 고유 ID (네이버 테마 코드)
@@ -25,8 +33,25 @@ export interface FavoriteTheme {
   themeId: string; // 테마 ID
   themeName: string; // 테마명 (캐시)
   order: number; // 정렬 순서
+  customStocks: string[] | null; // 사용자 선택 종목 (null이면 기본 주도주)
   createdAt: number; // 추가 시간
 }
+
+// 모멘텀 점수 가중치 설정
+export interface MomentumWeights {
+  changePercent: number; // 상승률 가중치 (0-1)
+  volume: number; // 거래량 증가율 가중치 (0-1)
+  tradingValue: number; // 거래대금 가중치 (0-1)
+  marketCap: number; // 시가총액 가중치 (0-1)
+}
+
+// 기본 모멘텀 가중치
+export const DEFAULT_MOMENTUM_WEIGHTS: MomentumWeights = {
+  changePercent: 0.3, // 30%
+  volume: 0.25, // 25%
+  tradingValue: 0.25, // 25%
+  marketCap: 0.2, // 20%
+};
 
 // 테마 필터 타입
 export type ThemeFilterType = 'all' | 'advance' | 'decline';

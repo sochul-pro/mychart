@@ -1,22 +1,26 @@
 'use client';
 
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import Link from 'next/link';
-import { GripVertical, X, ArrowUp, ArrowDown, Loader2 } from 'lucide-react';
+import { GripVertical, X, ArrowUp, ArrowDown, Loader2, Settings } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { SparklineChart } from './SparklineChart';
 import { cn } from '@/lib/utils';
-import { useTheme } from '@/hooks/useThemes';
-import type { Theme, FavoriteTheme, SparklineData } from '@/types';
+import { useTheme, useThemeStocks } from '@/hooks/useThemes';
+import type { Theme, FavoriteTheme, SparklineData, ThemeStock, LeadingStock } from '@/types';
+
+// 표시할 종목 수
+const DISPLAY_STOCK_COUNT = 5;
 
 interface FavoriteThemeCardProps {
   favorite: FavoriteTheme;
   theme: Theme | null;
   sparklineData?: SparklineData[];
   onRemove: (id: string) => void;
+  onEditStocks?: (id: string, themeId: string) => void;
   isDragging?: boolean;
   dragHandleProps?: React.HTMLAttributes<HTMLDivElement>;
 }
@@ -35,6 +39,7 @@ export const FavoriteThemeCard = memo(function FavoriteThemeCard({
   theme,
   sparklineData = [],
   onRemove,
+  onEditStocks,
   isDragging = false,
   dragHandleProps,
 }: FavoriteThemeCardProps) {
@@ -44,8 +49,41 @@ export const FavoriteThemeCard = memo(function FavoriteThemeCard({
     needsDetail ? favorite.themeId : null
   );
 
+  // 전체 종목 조회 (customStocks 매핑 또는 모멘텀 기반 표시용)
+  const hasCustomStocks = favorite.customStocks && favorite.customStocks.length > 0;
+  const { stocks: allThemeStocks, isLoading: isLoadingStocks } = useThemeStocks(
+    favorite.themeId,
+    { enabled: true }
+  );
+
   // 실제 사용할 테마 데이터 (상세 조회 결과 우선)
   const displayTheme = detailedTheme || theme;
+
+  // 표시할 종목 결정: customStocks 우선, 없으면 모멘텀 점수 기반
+  const displayStocks = useMemo((): LeadingStock[] => {
+    // 1. customStocks가 있으면 해당 종목 사용
+    if (hasCustomStocks) {
+      // 전체 종목에서 customStocks에 해당하는 종목 필터링
+      const stockMap = new Map(allThemeStocks.map((s) => [s.symbol, s]));
+      return favorite.customStocks!
+        .map((symbol) => stockMap.get(symbol))
+        .filter((s): s is ThemeStock => !!s)
+        .slice(0, DISPLAY_STOCK_COUNT);
+    }
+
+    // 2. 모멘텀 점수 기반 종목이 있으면 사용
+    if (allThemeStocks.length > 0) {
+      return allThemeStocks.slice(0, DISPLAY_STOCK_COUNT).map((s) => ({
+        symbol: s.symbol,
+        name: s.name,
+        price: s.price,
+        changePercent: s.changePercent,
+      }));
+    }
+
+    // 3. 기본 주도주 사용
+    return displayTheme?.leadingStocks.slice(0, DISPLAY_STOCK_COUNT) || [];
+  }, [hasCustomStocks, favorite.customStocks, displayTheme, allThemeStocks]);
 
   // 테마 정보가 없을 때 로딩 상태
   if (!displayTheme) {
@@ -131,16 +169,31 @@ export const FavoriteThemeCard = memo(function FavoriteThemeCard({
           </div>
         </div>
 
-        {/* 삭제 버튼 */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 text-muted-foreground hover:text-destructive"
-          onClick={() => onRemove(favorite.id)}
-          aria-label={`${displayTheme.name} 관심 해제`}
-        >
-          <X className="h-4 w-4" />
-        </Button>
+        {/* 버튼 그룹 */}
+        <div className="flex items-center gap-1">
+          {/* 종목 설정 버튼 */}
+          {onEditStocks && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-primary"
+              onClick={() => onEditStocks(favorite.id, favorite.themeId)}
+              aria-label={`${displayTheme.name} 종목 설정`}
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
+          )}
+          {/* 삭제 버튼 */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+            onClick={() => onRemove(favorite.id)}
+            aria-label={`${displayTheme.name} 관심 해제`}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
       </CardHeader>
 
       <CardContent className="space-y-4">
@@ -160,9 +213,16 @@ export const FavoriteThemeCard = memo(function FavoriteThemeCard({
           <Progress value={upRatio} className="h-2" aria-label={`상승 종목 비율 ${Math.round(upRatio)}%`} />
         </div>
 
-        {/* 주도주 + 스파크라인 */}
-        <div className="space-y-2 border-t pt-3">
-          {displayTheme.leadingStocks.slice(0, 3).map((stock) => {
+        {/* 주도주 + 스파크라인 (5종목) */}
+        <div className="space-y-1 border-t pt-3">
+          {/* 종목 선택 모드 표시 */}
+          {hasCustomStocks && (
+            <div className="text-xs text-muted-foreground mb-2">
+              📌 직접 선택한 종목
+            </div>
+          )}
+
+          {displayStocks.map((stock) => {
             const sparkline = sparklineMap.get(stock.symbol);
             const prices = sparkline?.prices || generateMockSparkline(stock.changePercent);
 
@@ -170,7 +230,7 @@ export const FavoriteThemeCard = memo(function FavoriteThemeCard({
               <Link
                 key={stock.symbol}
                 href={`/stocks/${stock.symbol}`}
-                className="flex items-center justify-between gap-2 p-2 rounded-lg hover:bg-muted/50 transition-colors"
+                className="flex items-center justify-between gap-2 p-1.5 rounded-lg hover:bg-muted/50 transition-colors"
               >
                 {/* 종목 정보 */}
                 <div className="min-w-0 flex-1">
@@ -190,21 +250,21 @@ export const FavoriteThemeCard = memo(function FavoriteThemeCard({
                 </div>
 
                 {/* 스파크라인 */}
-                <SparklineChart data={prices} width={60} height={24} />
+                <SparklineChart data={prices} width={50} height={20} />
               </Link>
             );
           })}
 
-          {isLoadingDetail && displayTheme.leadingStocks.length === 0 && (
+          {(isLoadingDetail || isLoadingStocks) && displayStocks.length === 0 && (
             <div className="flex items-center justify-center py-3 text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              주도주 로딩 중...
+              종목 로딩 중...
             </div>
           )}
 
-          {!isLoadingDetail && displayTheme.leadingStocks.length === 0 && (
+          {!isLoadingDetail && !isLoadingStocks && displayStocks.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-3">
-              주도주 정보가 없습니다
+              종목 정보가 없습니다
             </p>
           )}
         </div>

@@ -4,8 +4,15 @@ import type {
   ThemeListResponse,
   ThemeFilter,
   ThemeSummary,
+  ThemeStock,
   DEFAULT_THEME_FILTER,
 } from '@/types';
+
+interface ThemeStocksResponse {
+  stocks: ThemeStock[];
+  total: number;
+  themeId: string;
+}
 
 interface UseThemesOptions {
   filter?: Partial<ThemeFilter>;
@@ -83,6 +90,34 @@ export function useTheme(themeId: string | null) {
 
   return {
     theme: query.data ?? null,
+    isLoading: query.isLoading,
+    error: query.error,
+    refetch: query.refetch,
+  };
+}
+
+/**
+ * 테마 내 종목 조회 훅 (모멘텀 점수 기반)
+ */
+export function useThemeStocks(themeId: string | null, options: { top?: number; enabled?: boolean } = {}) {
+  const query = useQuery({
+    queryKey: ['themeStocks', themeId, options.top],
+    queryFn: async (): Promise<ThemeStocksResponse> => {
+      const params = new URLSearchParams();
+      if (options.top) {
+        params.set('top', String(options.top));
+      }
+      const res = await fetch(`/api/themes/${themeId}/stocks?${params.toString()}`);
+      if (!res.ok) throw new Error('테마 종목을 가져오는데 실패했습니다.');
+      return res.json();
+    },
+    enabled: !!themeId && options.enabled !== false,
+    staleTime: 60 * 1000,
+  });
+
+  return {
+    stocks: query.data?.stocks ?? [],
+    total: query.data?.total ?? 0,
     isLoading: query.isLoading,
     error: query.error,
     refetch: query.refetch,

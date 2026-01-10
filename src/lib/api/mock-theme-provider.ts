@@ -1,4 +1,4 @@
-import type { Theme, ThemeSummary, LeadingStock } from '@/types';
+import type { Theme, ThemeSummary, LeadingStock, ThemeStock } from '@/types';
 import type { ThemeProvider } from './theme-provider';
 
 /**
@@ -357,6 +357,43 @@ export class MockThemeProvider implements ThemeProvider {
    */
   async getTotalThemeCount(): Promise<number> {
     return this.allThemes.length;
+  }
+
+  /**
+   * 테마 내 전체 종목 조회 (Mock 데이터)
+   */
+  async getThemeStocks(themeId: string): Promise<ThemeStock[]> {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const theme = this.allThemes.find((t) => t.id === themeId);
+    if (!theme) return [];
+
+    // 테마의 stockCount만큼 Mock 종목 생성
+    const stocks: ThemeStock[] = [];
+    const names = [
+      '삼성전자', 'SK하이닉스', 'LG에너지솔루션', 'NAVER', '카카오',
+      '삼성바이오', '셀트리온', '현대차', '기아', 'POSCO홀딩스',
+      '삼성SDI', 'LG화학', '현대모비스', 'KB금융', '신한지주',
+      '삼성물산', 'LG전자', 'SK이노베이션', 'SK텔레콤', 'KT',
+    ];
+
+    for (let i = 0; i < Math.min(theme.stockCount, 20); i++) {
+      const changePercent = Number(((Math.random() - 0.3) * 10).toFixed(2));
+      const price = Math.floor(Math.random() * 500000) + 10000;
+      const volume = Math.floor(Math.random() * 5000000) + 100000;
+
+      stocks.push({
+        symbol: String(Math.floor(Math.random() * 900000) + 100000),
+        name: names[i % names.length] || `종목${i + 1}`,
+        price,
+        changePercent,
+        volume,
+        tradingValue: Math.round((price * volume) / 1000000),
+        marketCap: Math.floor(Math.random() * 100000) + 1000, // 억원 단위
+      });
+    }
+
+    return stocks;
   }
 }
 

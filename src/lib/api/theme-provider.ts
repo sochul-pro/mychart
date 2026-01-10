@@ -1,4 +1,4 @@
-import type { Theme, ThemeSummary } from '@/types';
+import type { Theme, ThemeSummary, ThemeStock } from '@/types';
 
 /**
  * 테마 데이터 Provider 인터페이스
@@ -39,6 +39,13 @@ export interface ThemeProvider {
    * @returns 전체 테마 수
    */
   getTotalThemeCount(): Promise<number>;
+
+  /**
+   * 테마 내 전체 종목 조회 (모멘텀 점수 계산용 상세 정보 포함)
+   * @param themeId 테마 ID
+   * @returns 테마 내 종목 목록 (거래량, 거래대금, 시가총액 포함)
+   */
+  getThemeStocks(themeId: string): Promise<ThemeStock[]>;
 }
 
 /** 현재 활성화된 Provider */

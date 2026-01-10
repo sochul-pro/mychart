@@ -62,6 +62,25 @@ async function reorderFavoriteThemes(orderedIds: string[]): Promise<void> {
   }
 }
 
+/**
+ * 관심 테마 종목 설정 변경
+ */
+async function updateCustomStocks(data: {
+  id: string;
+  customStocks: string[] | null;
+}): Promise<FavoriteTheme> {
+  const res = await fetch(`/api/themes/favorites/${data.id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ customStocks: data.customStocks }),
+  });
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.error || '종목 설정 변경에 실패했습니다.');
+  }
+  return res.json();
+}
+
 interface UseFavoriteThemesOptions {
   enabled?: boolean;
 }
@@ -132,6 +151,14 @@ export function useFavoriteThemes(options: UseFavoriteThemesOptions = {}) {
     },
   });
 
+  // 종목 설정 변경 뮤테이션
+  const updateCustomStocksMutation = useMutation({
+    mutationFn: updateCustomStocks,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey });
+    },
+  });
+
   // 테마가 관심 목록에 있는지 확인
   const isFavorite = (themeId: string): boolean => {
     return query.data?.favorites.some((f) => f.themeId === themeId) ?? false;
@@ -155,11 +182,13 @@ export function useFavoriteThemes(options: UseFavoriteThemesOptions = {}) {
     addFavorite: addMutation.mutate,
     removeFavorite: removeMutation.mutate,
     reorderFavorites: reorderMutation.mutate,
+    updateCustomStocks: updateCustomStocksMutation.mutate,
 
     // 뮤테이션 상태
     isAdding: addMutation.isPending,
     isRemoving: removeMutation.isPending,
     isReordering: reorderMutation.isPending,
+    isUpdatingCustomStocks: updateCustomStocksMutation.isPending,
 
     // 유틸리티
     isFavorite,

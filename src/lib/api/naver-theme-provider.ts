@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio';
-import type { Theme, ThemeSummary, LeadingStock } from '@/types';
+import type { Theme, ThemeSummary, LeadingStock, ThemeStock } from '@/types';
 import type { ThemeProvider } from './theme-provider';
 
 /**
@@ -159,6 +159,62 @@ export class NaverThemeProvider implements ThemeProvider {
   }
 
   /**
+   * 테마 상세 페이지에서 전체 종목 파싱 (모멘텀 점수 계산용 상세 정보 포함)
+   */
+  private parseThemeStocks(html: string): ThemeStock[] {
+    const $ = cheerio.load(html);
+    const stocks: ThemeStock[] = [];
+
+    // 종목 테이블에서 전체 종목 추출
+    $('table.type_5 tbody tr').each((_, row) => {
+      const $row = $(row);
+
+      // 종목명 및 코드 추출
+      const stockLink = $row.find('td.name a');
+      const name = stockLink.text().trim();
+      const href = stockLink.attr('href') || '';
+      const symbolMatch = href.match(/code=(\d+)/);
+      const symbol = symbolMatch ? symbolMatch[1] : '';
+
+      if (!name || !symbol) return;
+
+      // td.number 셀들에서 정보 추출
+      const numberCells = $row.find('td.number');
+
+      // 현재가 (첫 번째 td.number)
+      const priceText = $(numberCells[0]).text().trim().replace(/,/g, '').replace(/[^\d]/g, '');
+      const price = parseInt(priceText, 10) || 0;
+
+      // 등락률 (세 번째 td.number)
+      const changeText = $(numberCells[2]).text().trim();
+      const changePercent = this.parseChangePercent(changeText);
+
+      // 거래량 (네 번째 td.number) - 천 단위로 표시되기도 함
+      const volumeText = $(numberCells[3]).text().trim().replace(/,/g, '').replace(/[^\d]/g, '');
+      const volume = parseInt(volumeText, 10) || 0;
+
+      // 거래대금 추정 (현재가 * 거래량 / 1,000,000) - 백만원 단위
+      const tradingValue = Math.round((price * volume) / 1000000);
+
+      // 시가총액 - 테마 상세 페이지에서는 직접 제공되지 않음
+      // 추후 종목 상세 조회로 보완 가능, 우선 기본값 사용
+      const marketCap = 0;
+
+      stocks.push({
+        symbol,
+        name,
+        price,
+        changePercent,
+        volume,
+        tradingValue,
+        marketCap,
+      });
+    });
+
+    return stocks;
+  }
+
+  /**
    * 전체 테마 목록 가져오기 (캐시 사용)
    */
   private async fetchAllThemes(): Promise<Theme[]> {
@@ -295,6 +351,20 @@ export class NaverThemeProvider implements ThemeProvider {
    */
   clearCache(): void {
     this.cache = null;
+  }
+
+  /**
+   * 테마 내 전체 종목 조회 (모멘텀 점수 계산용)
+   */
+  async getThemeStocks(themeId: string): Promise<ThemeStock[]> {
+    try {
+      const detailUrl = `${this.detailUrl}?type=theme&no=${themeId}`;
+      const html = await this.fetchPage(detailUrl);
+      return this.parseThemeStocks(html);
+    } catch (error) {
+      console.error(`테마 ${themeId} 종목 조회 실패:`, error);
+      return [];
+    }
   }
 }
 
