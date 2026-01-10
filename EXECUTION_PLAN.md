@@ -772,6 +772,34 @@ npm run test:e2e:report # 테스트 리포트
 
 ---
 
+### TASK-032: 관심 테마 주도주 표시 개선 ✅
+**설명**: 관심 테마의 주도주 표시 기능 개선 (모멘텀 점수 기반 + 사용자 선택)
+**범위**:
+- 주도주 표시 개수: 3개 → 5개로 확대
+- 모멘텀 점수 계산 로직 구현
+  - 상승률 30%, 거래량 25%, 거래대금 25%, 시가총액 20%
+  - Min-Max 정규화로 지표별 점수 산출
+- 테마 내 전체 종목 조회 API (`GET /api/themes/[themeId]/stocks`)
+- 종목 선택 모달 UI (StockSelectModal)
+- 사용자 선택 종목 저장 (DB customStocks 필드)
+- 비로그인 사용자: localStorage 저장 지원
+
+**산출물**:
+- `/src/lib/api/momentum-calculator.ts` - 모멘텀 점수 계산
+- `/src/app/api/themes/[themeId]/stocks/route.ts` - 테마 종목 API
+- `/src/components/themes/StockSelectModal.tsx` - 종목 선택 모달
+- `/src/components/themes/FavoriteThemeCard.tsx` (수정)
+- `/src/hooks/useThemes.ts` (수정, useThemeStocks 훅 추가)
+- `/src/hooks/useFavoriteThemes.ts` (수정, updateCustomStocks 추가)
+- `/src/stores/favoriteThemeStore.ts` (수정, customStocks 지원)
+- `/src/types/theme.ts` (수정, ThemeStock, MomentumWeights 타입)
+- `prisma/schema.prisma` (수정, customStocks 필드)
+
+**의존성**: TASK-030
+**완료**: 2026-01-10 (#45)
+
+---
+
 ## 태스크 의존성 다이어그램
 
 ```
@@ -839,6 +867,7 @@ TASK-016 + TASK-014 + TASK-012 + TASK-015
 | 1.0 | 2026-01-09 | 보완 사항 섹션 추가 (#43 - MAINT-001~003: 테스트 수정, API 보안 강화, 에러 바운더리) |
 | 1.1 | 2026-01-10 | Phase 7 테마 시스템 추가 (TASK-026~031: 오늘의 테마, 관심 테마 기능) |
 | 1.2 | 2026-01-10 | Phase 7 테마 시스템 완료 (#44 - Provider, API, 훅, UI, 네비게이션 통합, 접근성 개선) |
+| 1.3 | 2026-01-10 | TASK-032 관심 테마 주도주 표시 개선 (#45 - 모멘텀 점수 기반 5종목, 사용자 선택 기능) |
 
 ---
 
@@ -853,12 +882,12 @@ TASK-016 + TASK-014 + TASK-012 + TASK-015
 | Phase 4 | 3 | 3 | 0 | 0 |
 | Phase 5 | 3 | 3 | 0 | 0 |
 | Phase 6 | 4 | 4 | 0 | 0 |
-| Phase 7 | 6 | 6 | 0 | 0 |
+| Phase 7 | 7 | 7 | 0 | 0 |
 | Maintenance | 3 | 3 | 0 | 0 |
-| **합계** | **34** | **34** | **0** | **0** |
+| **합계** | **35** | **35** | **0** | **0** |
 
-### 완료 태스크 (✅): 34개
-- TASK-001~031 전체 완료
+### 완료 태스크 (✅): 35개
+- TASK-001~032 전체 완료
 - MAINT-001~003 보완 사항 완료
 
 ### 주요 완료 이력
@@ -872,3 +901,4 @@ TASK-016 + TASK-014 + TASK-012 + TASK-015
 | 2026-01-09 | TASK-010, 018~021 최종 완료 | #42 |
 | 2026-01-09 | 보완 사항 구현 (테스트/보안/에러 바운더리) | #43 |
 | 2026-01-10 | TASK-026~031 테마 시스템 완료 | #44 |
+| 2026-01-10 | TASK-032 관심 테마 주도주 표시 개선 | #45 |
