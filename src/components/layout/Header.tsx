@@ -9,6 +9,7 @@ const navItems = [
   { href: '/dashboard', label: '대시보드' },
   { href: '/watchlist', label: '관심종목' },
   { href: '/screener', label: '스크리너' },
+  { href: '/themes', label: '테마' },
 ];
 
 interface HeaderProps {

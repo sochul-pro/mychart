@@ -634,6 +634,144 @@ npm run test:e2e:report # 테스트 리포트
 
 ---
 
+## Phase 7: 테마 시스템
+
+### TASK-026: 테마 데이터 Provider 구현 ✅
+**설명**: 네이버 금융 테마 페이지 크롤링 및 데이터 Provider 구현
+**범위**:
+- ThemeProvider 인터페이스 정의
+- NaverThemeProvider 구현 (네이버 금융 테마 크롤링)
+- MockThemeProvider 구현 (개발/테스트용)
+- User-Agent 헤더 설정으로 크롤링 차단 대응
+- EUC-KR 인코딩 처리
+- 테마 데이터 캐싱 (5분 TTL)
+- ProviderFactory 패턴으로 환경별 Provider 자동 선택
+
+**산출물**:
+- `/src/types/theme.ts` - 테마 타입 정의
+- `/src/lib/api/theme-provider.ts` - Provider 인터페이스
+- `/src/lib/api/naver-theme-provider.ts` - 네이버 크롤링 구현체
+- `/src/lib/api/mock-theme-provider.ts` - Mock 구현체
+- `/src/lib/api/theme-provider-factory.ts` - Provider 팩토리
+
+**의존성**: 없음
+**완료**: 2026-01-10 (#44)
+
+---
+
+### TASK-027: 테마 API 라우트 구현 ✅
+**설명**: 테마 데이터 조회 및 관심 테마 관리 API
+**범위**:
+- 테마 목록 조회 API (`GET /api/themes`)
+- 테마 상세 조회 API (`GET /api/themes/[themeId]`)
+- 관심 테마 CRUD API
+  - `GET /api/themes/favorites` - 관심 테마 목록
+  - `POST /api/themes/favorites` - 관심 테마 추가 (중복 방지)
+  - `DELETE /api/themes/favorites/[id]` - 관심 테마 삭제 (권한 검증)
+  - `PUT /api/themes/favorites/reorder` - 관심 테마 순서 변경 (트랜잭션)
+
+**산출물**:
+- `/src/app/api/themes/route.ts`
+- `/src/app/api/themes/[themeId]/route.ts`
+- `/src/app/api/themes/favorites/route.ts`
+- `/src/app/api/themes/favorites/[id]/route.ts`
+- `/src/app/api/themes/favorites/reorder/route.ts`
+
+**의존성**: TASK-026
+**완료**: 2026-01-10 (#44)
+
+---
+
+### TASK-028: 테마 DB 스키마 및 훅 ✅
+**설명**: 관심 테마 저장을 위한 DB 스키마 및 React 훅 구현
+**범위**:
+- FavoriteTheme Prisma 모델 추가
+- useThemes 훅 (테마 목록 조회, 페이지네이션)
+- useTheme 훅 (단일 테마 상세 조회)
+- useFavoriteThemes 훅 (관심 테마 CRUD, 낙관적 업데이트)
+- localStorage 기반 대체 저장소 (비로그인 사용자용)
+- Zustand persist 미들웨어로 localStorage 자동 동기화
+
+**산출물**:
+- `prisma/schema.prisma` 수정 (FavoriteTheme 모델 추가)
+- `/src/hooks/useThemes.ts`
+- `/src/hooks/useFavoriteThemes.ts`
+- `/src/stores/favoriteThemeStore.ts` (Zustand, 비로그인용)
+
+**의존성**: TASK-026, TASK-027
+**완료**: 2026-01-10 (#44)
+
+---
+
+### TASK-029: 오늘의 테마 페이지 UI ✅
+**설명**: `/themes` 페이지 컴포넌트 구현
+**범위**:
+- 테마 페이지 레이아웃
+- 상단 요약 카드 (핫 테마, 급등/급락 테마)
+- 필터 영역 (전체/상승/하락, 정렬, 검색)
+- 테마 카드 그리드 (1~3열 반응형)
+- 페이지네이션 (10개씩)
+- 테마 상세 모달 (주도주 목록, 상승/하락 비율)
+- 관심 테마 즐겨찾기 토글
+
+**산출물**:
+- `/src/app/(main)/themes/page.tsx`
+- `/src/components/themes/ThemeSummaryCards.tsx`
+- `/src/components/themes/ThemeFilters.tsx`
+- `/src/components/themes/ThemeCard.tsx`
+- `/src/components/themes/ThemeGrid.tsx`
+- `/src/components/themes/ThemeDetailModal.tsx`
+
+**의존성**: TASK-027, TASK-028
+**완료**: 2026-01-10 (#44)
+
+---
+
+### TASK-030: 관심 테마 페이지 UI ✅
+**설명**: `/themes/favorites` 페이지 컴포넌트 구현
+**범위**:
+- 관심 테마 대시보드 레이아웃
+- 2열 반응형 그리드 (md 이상)
+- 드래그 정렬 인프라 (dragHandleProps)
+- 스파크라인 차트 (주도주 20일 종가)
+  - 크기: 60px x 24px (컴팩트)
+  - 상승: red-600, 하락: blue-600 (WCAG AA 충족)
+  - SVG polyline 렌더링
+- 세로 스택 레이아웃 (테마 정보 → 상승/하락 비율 → 주도주)
+- 접근성 개선
+  - 드래그 핸들: `role="button"`, `aria-label="순서 변경"`
+  - 삭제 버튼: `aria-label="${테마명} 관심 해제"`
+  - Progress bar: `aria-label="상승 종목 비율 N%"`
+
+**산출물**:
+- `/src/app/(main)/themes/favorites/page.tsx`
+- `/src/components/themes/FavoriteThemeCard.tsx`
+- `/src/components/themes/SparklineChart.tsx`
+
+**의존성**: TASK-029
+**완료**: 2026-01-10 (#44)
+
+---
+
+### TASK-031: 테마 기능 테스트 및 마무리 ✅
+**설명**: 테스트 및 네비게이션 통합
+**범위**:
+- Header에 "테마" 메뉴 추가 (네비게이션 통합)
+- MobileNav에 "테마" 메뉴 추가
+- skeleton.tsx UI 컴포넌트 추가
+- ~~ThemeProvider 단위 테스트~~ (추후)
+- ~~E2E 테스트 시나리오 추가~~ (추후)
+
+**산출물**:
+- `/src/components/layout/Header.tsx` (수정)
+- `/src/components/layout/MobileNav.tsx` (수정)
+- `/src/components/ui/skeleton.tsx` (신규)
+
+**의존성**: TASK-029, TASK-030
+**완료**: 2026-01-10 (#44)
+
+---
+
 ## 태스크 의존성 다이어그램
 
 ```
@@ -699,6 +837,8 @@ TASK-016 + TASK-014 + TASK-012 + TASK-015
 | 0.8 | 2026-01-04 | TASK-012 종목 검색 기능 추가 (#41 - 혼합 검색 방식, 동적 마스터 데이터) |
 | 0.9 | 2026-01-09 | 미완료 태스크 전체 완료 (#42 - TASK-010 조건빌더UI, TASK-018 API연동, TASK-019~021 E2E테스트/성능/반응형) |
 | 1.0 | 2026-01-09 | 보완 사항 섹션 추가 (#43 - MAINT-001~003: 테스트 수정, API 보안 강화, 에러 바운더리) |
+| 1.1 | 2026-01-10 | Phase 7 테마 시스템 추가 (TASK-026~031: 오늘의 테마, 관심 테마 기능) |
+| 1.2 | 2026-01-10 | Phase 7 테마 시스템 완료 (#44 - Provider, API, 훅, UI, 네비게이션 통합, 접근성 개선) |
 
 ---
 
@@ -713,11 +853,12 @@ TASK-016 + TASK-014 + TASK-012 + TASK-015
 | Phase 4 | 3 | 3 | 0 | 0 |
 | Phase 5 | 3 | 3 | 0 | 0 |
 | Phase 6 | 4 | 4 | 0 | 0 |
+| Phase 7 | 6 | 6 | 0 | 0 |
 | Maintenance | 3 | 3 | 0 | 0 |
-| **합계** | **28** | **28** | **0** | **0** |
+| **합계** | **34** | **34** | **0** | **0** |
 
-### 완료 태스크 (✅): 28개
-- TASK-001~025 전체 완료
+### 완료 태스크 (✅): 34개
+- TASK-001~031 전체 완료
 - MAINT-001~003 보완 사항 완료
 
 ### 주요 완료 이력
@@ -730,3 +871,4 @@ TASK-016 + TASK-014 + TASK-012 + TASK-015
 | 2026-01-04 | 기능 개선 (관심종목, 스크리너) | #39~41 |
 | 2026-01-09 | TASK-010, 018~021 최종 완료 | #42 |
 | 2026-01-09 | 보완 사항 구현 (테스트/보안/에러 바운더리) | #43 |
+| 2026-01-10 | TASK-026~031 테마 시스템 완료 | #44 |

@@ -5,3 +5,4 @@ export * from './watchlist';
 export * from './screener';
 export * from './sector';
 export * from './settings';
+export * from './theme';

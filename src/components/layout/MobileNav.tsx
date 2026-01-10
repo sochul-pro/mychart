@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Menu, LayoutDashboard, Star, Search, Settings, LogOut } from 'lucide-react';
+import { Menu, LayoutDashboard, Star, Search, Layers, Settings, LogOut } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import {
@@ -19,6 +19,7 @@ const navItems = [
   { href: '/dashboard', label: '대시보드', icon: LayoutDashboard },
   { href: '/watchlist', label: '관심종목', icon: Star },
   { href: '/screener', label: '스크리너', icon: Search },
+  { href: '/themes', label: '테마', icon: Layers },
   { href: '/settings', label: '설정', icon: Settings },
 ];
 
