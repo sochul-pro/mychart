@@ -820,6 +820,91 @@ npm run test:e2e:report # 테스트 리포트
 
 ---
 
+### TASK-034: 매매 신호 시스템 구현 ✅
+**설명**: 프리셋 CRUD, 상세 백테스트, 알림 시스템, 신호 히스토리 기능 구현
+**범위**:
+
+**1. DB 스키마 확장 (Prisma)**
+- `SignalPreset` - 전략 프리셋 (성능 메타데이터: winRate, totalReturn, maxDrawdown, sharpeRatio)
+- `SignalHistory` - 신호 발생 이력 (진입/청산, 손익률)
+- `BacktestRun` - 백테스트 실행 기록 (설정, 통계, 거래내역)
+- `SignalAlert` - 알림 설정 (프리셋별, 종목별, 이메일/푸시)
+- `AlertNotification` - 알림 발송 기록 (읽음 처리)
+
+**2. 백테스트 엔진**
+- `BacktestEngine` - 거래 시뮬레이션 클래스
+  - 매수/매도 신호 기반 포지션 진입/청산
+  - 수수료, 슬리피지 적용
+  - 자산 곡선, 낙폭 곡선 계산
+- `statistics.ts` - 통계 지표 계산 모듈
+  - 샤프 비율, 소르티노 비율, 칼마 비율
+  - MDD (최대 낙폭), 이익 팩터, 기대값
+  - 월별 수익률, 연속 승/패
+
+**3. API 엔드포인트 (7개)**
+- `GET/POST /api/signals/presets` - 프리셋 목록/생성
+- `GET/PUT/DELETE /api/signals/presets/[id]` - 프리셋 상세/수정/삭제
+- `POST /api/signals/backtest` - 백테스트 실행
+- `GET/POST /api/signals/history` - 신호 이력 조회/생성
+- `GET/POST /api/signals/alerts` - 알림 설정 목록/생성
+- `PUT/DELETE /api/signals/alerts/[id]` - 알림 수정/삭제
+- `GET/POST /api/signals/alerts/notifications` - 알림 목록/읽음처리
+
+**4. React 훅 (4개)**
+- `useSignalPresets` - 프리셋 CRUD (TanStack Query)
+- `useBacktest` - 백테스트 실행 및 설정 관리
+- `useSignalHistory` - 신호 이력 조회
+- `useSignalAlerts` - 알림 관리 (30초 폴링)
+
+**5. UI 컴포넌트 (15개)**
+- `SymbolSelect` - 종목 검색/선택 (자동완성)
+- `PresetManager` - 전략 관리 (탭: 기본/내 전략)
+- `PresetCard` - 전략 카드 (성능 지표 표시)
+- `PresetForm` - 전략 생성/수정 다이얼로그
+- `BacktestConfigPanel` - 백테스트 설정 패널 (기간, 자본금, 수수료)
+- `BacktestSummaryCards` - 결과 요약 카드 (총수익률, 승률, MDD, 샤프, 거래수)
+- `BacktestDetailStats` - 상세 통계 (10개 지표)
+- `EquityCurveChart` - 자산 곡선 차트 (Lightweight Charts)
+- `DrawdownChart` - 낙폭 차트 (Area Series)
+- `MonthlyReturnsTable` - 월별 수익률 히트맵 테이블
+- `TradeHistoryTable` - 거래 내역 테이블 (정렬, 페이지네이션)
+- `alert.tsx`, `collapsible.tsx`, `table.tsx`, `textarea.tsx` - shadcn/ui 컴포넌트
+
+**6. 상태 관리**
+- `signalStore` (Zustand) - 전략, 설정, 결과, UI 상태 관리
+- localStorage persist (설정값 유지)
+
+**7. 페이지**
+- `/signals` - 매매 신호 메인 페이지
+  - 2-panel 레이아웃 (사이드바: 설정 / 메인: 결과)
+  - 탭 UI (상세통계 | 월별수익률 | 거래내역)
+
+**산출물**:
+- `prisma/schema.prisma` (수정, 5개 모델 추가)
+- `/src/lib/signals/backtest-engine.ts`
+- `/src/lib/signals/statistics.ts`
+- `/src/lib/signals/alert-service.ts`
+- `/src/app/api/signals/presets/route.ts`
+- `/src/app/api/signals/presets/[id]/route.ts`
+- `/src/app/api/signals/backtest/route.ts`
+- `/src/app/api/signals/history/route.ts`
+- `/src/app/api/signals/alerts/route.ts`
+- `/src/app/api/signals/alerts/[id]/route.ts`
+- `/src/app/api/signals/alerts/notifications/route.ts`
+- `/src/hooks/useSignalPresets.ts`
+- `/src/hooks/useBacktest.ts`
+- `/src/hooks/useSignalHistory.ts`
+- `/src/hooks/useSignalAlerts.ts`
+- `/src/stores/signalStore.ts`
+- `/src/app/(main)/signals/page.tsx`
+- `/src/components/signals/*.tsx` (11개 컴포넌트)
+- `/src/components/ui/*.tsx` (4개 컴포넌트)
+
+**의존성**: TASK-009, TASK-010
+**완료**: 2026-01-11 (#47)
+
+---
+
 ## 태스크 의존성 다이어그램
 
 ```
@@ -889,6 +974,7 @@ TASK-016 + TASK-014 + TASK-012 + TASK-015
 | 1.2 | 2026-01-10 | Phase 7 테마 시스템 완료 (#44 - Provider, API, 훅, UI, 네비게이션 통합, 접근성 개선) |
 | 1.3 | 2026-01-10 | TASK-032 관심 테마 주도주 표시 개선 (#45 - 모멘텀 점수 기반 5종목, 사용자 선택 기능) |
 | 1.4 | 2026-01-11 | TASK-033 관심종목 그룹명 변경 기능 추가 (#46) |
+| 1.5 | 2026-01-11 | TASK-034 매매 신호 시스템 구현 (#47) - 백테스트 엔진, 프리셋 관리, 알림 시스템, /signals 페이지 |
 
 ---
 
@@ -903,12 +989,12 @@ TASK-016 + TASK-014 + TASK-012 + TASK-015
 | Phase 4 | 3 | 3 | 0 | 0 |
 | Phase 5 | 3 | 3 | 0 | 0 |
 | Phase 6 | 4 | 4 | 0 | 0 |
-| Phase 7 | 8 | 8 | 0 | 0 |
+| Phase 7 | 9 | 9 | 0 | 0 |
 | Maintenance | 3 | 3 | 0 | 0 |
-| **합계** | **36** | **36** | **0** | **0** |
+| **합계** | **37** | **37** | **0** | **0** |
 
-### 완료 태스크 (✅): 36개
-- TASK-001~033 전체 완료
+### 완료 태스크 (✅): 37개
+- TASK-001~034 전체 완료
 - MAINT-001~003 보완 사항 완료
 
 ### 주요 완료 이력
@@ -924,3 +1010,4 @@ TASK-016 + TASK-014 + TASK-012 + TASK-015
 | 2026-01-10 | TASK-026~031 테마 시스템 완료 | #44 |
 | 2026-01-10 | TASK-032 관심 테마 주도주 표시 개선 | #45 |
 | 2026-01-11 | TASK-033 관심종목 그룹명 변경 기능 | #46 |
+| 2026-01-11 | TASK-034 매매 신호 시스템 구현 | #47 |
