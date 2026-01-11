@@ -50,7 +50,8 @@ export class BacktestEngine {
     const endTime = this.config.endDate.getTime();
 
     return data.filter((d) => {
-      const time = d.time * 1000; // Unix timestamp to milliseconds
+      // time은 이미 밀리초 단위 (KIS provider에서 date.getTime() 사용)
+      const time = d.time;
       return time >= startTime && time <= endTime;
     });
   }
