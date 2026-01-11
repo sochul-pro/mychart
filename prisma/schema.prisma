@@ -16,10 +16,12 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  watchlistGroups WatchlistGroup[]
-  signalPresets   SignalPreset[]
-  chartSettings   ChartSettings?
-  favoriteThemes  FavoriteTheme[]
+  watchlistGroups    WatchlistGroup[]
+  signalPresets      SignalPreset[]
+  chartSettings      ChartSettings?
+  favoriteThemes     FavoriteTheme[]
+  signalAlerts       SignalAlert[]
+  alertNotifications AlertNotification[]
 }
 
 // 관심종목 그룹
@@ -66,17 +68,158 @@ model Stock {
 
 // 매매 신호 프리셋
 model SignalPreset {
-  id        String   @id @default(cuid())
-  name      String
-  buyRules  Json     // 매수 조건 JSON
-  sellRules Json     // 매도 조건 JSON
-  isDefault Boolean  @default(false)
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  buyRules    Json     // 매수 조건 JSON (Condition)
+  sellRules   Json     // 매도 조건 JSON (Condition)
+  isDefault   Boolean  @default(false)
+  isActive    Boolean  @default(true)
+
+  // 성능 메타데이터 (백테스트 결과 캐시)
+  lastBacktestAt DateTime?
+  winRate        Float?     // 승률 (%)
+  totalReturn    Float?     // 총 수익률 (%)
+  maxDrawdown    Float?     // 최대 낙폭 (%)
+  sharpeRatio    Float?     // 샤프 비율
+
   userId    String?
   user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // 관계
+  signalHistory SignalHistory[]
+  backtestRuns  BacktestRun[]
+  alerts        SignalAlert[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([userId])
+  @@index([isDefault])
+}
+
+// 신호 발생 이력
+model SignalHistory {
+  id        String   @id @default(cuid())
+  presetId  String
+  preset    SignalPreset @relation(fields: [presetId], references: [id], onDelete: Cascade)
+
+  symbol    String   // 종목코드
+  type      String   // 'buy' | 'sell'
+  price     Float    // 신호 발생 시 가격
+  signalAt  DateTime // 신호 발생 시각
+
+  // 추가 정보
+  reason      String?  // 신호 발생 이유
+  indicators  Json?    // 신호 발생 시 지표 값 스냅샷
+
+  // 실현 결과 (매도 시 업데이트)
+  exitPrice   Float?   // 청산 가격
+  exitAt      DateTime? // 청산 시각
+  returnPct   Float?   // 수익률 (%)
+  holdingDays Int?     // 보유 기간 (일)
+
+  userId    String?
+  createdAt DateTime @default(now())
+
+  @@index([presetId])
+  @@index([symbol])
+  @@index([signalAt])
+  @@index([userId])
+}
+
+// 백테스트 실행 결과
+model BacktestRun {
+  id        String   @id @default(cuid())
+  presetId  String
+  preset    SignalPreset @relation(fields: [presetId], references: [id], onDelete: Cascade)
+
+  symbol    String   // 백테스트 대상 종목
+  startDate DateTime // 백테스트 시작일
+  endDate   DateTime // 백테스트 종료일
+
+  // 거래 설정
+  initialCapital  Float   @default(10000000) // 초기 자본 (원)
+  commission      Float   @default(0.015)    // 수수료율 (%)
+  slippage        Float   @default(0.1)      // 슬리피지 (%)
+
+  // 결과 통계
+  totalTrades     Int      // 총 거래 수
+  winningTrades   Int      // 승리 거래 수
+  losingTrades    Int      // 패배 거래 수
+  winRate         Float    // 승률 (%)
+
+  totalReturn     Float    // 총 수익률 (%)
+  annualizedReturn Float?  // 연환산 수익률 (%)
+  maxDrawdown     Float    // 최대 낙폭 (%)
+  sharpeRatio     Float?   // 샤프 비율
+  sortinoRatio    Float?   // 소르티노 비율
+
+  avgWinPct       Float?   // 평균 수익 거래 수익률 (%)
+  avgLossPct      Float?   // 평균 손실 거래 손실률 (%)
+  profitFactor    Float?   // 이익 팩터 (총 이익 / 총 손실)
+  avgHoldingDays  Float?   // 평균 보유 기간 (일)
+
+  // 상세 거래 내역
+  trades          Json     // Trade[] JSON
+  equityCurve     Json?    // 자산 곡선 데이터
+
+  userId    String?
+  createdAt DateTime @default(now())
+
+  @@index([presetId])
+  @@index([symbol])
+  @@index([userId])
+}
+
+// 알림 설정
+model SignalAlert {
+  id        String   @id @default(cuid())
+  presetId  String
+  preset    SignalPreset @relation(fields: [presetId], references: [id], onDelete: Cascade)
+
+  symbols   String[] // 감시 대상 종목 목록 (빈 배열 = 전체)
+  isActive  Boolean  @default(true)
+
+  // 알림 채널 설정
+  emailEnabled   Boolean @default(false)
+  pushEnabled    Boolean @default(true)
+
+  // 알림 조건
+  minPrice       Float?  // 최소 가격
+  maxPrice       Float?  // 최대 가격
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([presetId])
+  @@index([userId])
+  @@index([isActive])
+}
+
+// 알림 발송 이력
+model AlertNotification {
+  id          String   @id @default(cuid())
+  alertId     String
+
+  symbol      String
+  signalType  String   // 'buy' | 'sell'
+  price       Float
+  message     String
+
+  channel     String   // 'email' | 'push' | 'in_app'
+  sentAt      DateTime
+  readAt      DateTime?
+
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([alertId])
+  @@index([sentAt])
 }
 
 // 차트 설정

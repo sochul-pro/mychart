@@ -9,3 +9,9 @@ export { evaluateCondition, generateSignals } from './engine';
 
 // 프리셋 전략
 export { PRESET_STRATEGIES, getPresetStrategies, getPresetStrategy } from './presets';
+
+// 백테스트 엔진
+export { BacktestEngine, runBacktest } from './backtest-engine';
+
+// 통계
+export * from './statistics';

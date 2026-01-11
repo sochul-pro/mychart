@@ -87,3 +87,113 @@ export interface SignalResult {
   buyCount: number;
   sellCount: number;
 }
+
+/** 거래 기록 */
+export interface Trade {
+  id: string;
+  entryTime: number;
+  entryPrice: number;
+  exitTime?: number;
+  exitPrice?: number;
+  type: 'long'; // 현재는 롱만 지원
+  quantity: number;
+  returnPct?: number;
+  pnl?: number; // 손익 (원)
+  status: 'open' | 'closed';
+  entryReason: string;
+  exitReason?: string;
+}
+
+/** 백테스트 설정 */
+export interface BacktestConfig {
+  symbol: string;
+  startDate: Date;
+  endDate: Date;
+  initialCapital: number; // 초기 자본 (원)
+  commission: number; // 수수료율 (%, 기본 0.015)
+  slippage: number; // 슬리피지 (%, 기본 0.1)
+  positionSizing: 'fixed' | 'percent'; // 고정 금액 vs 비율
+  positionSize: number; // 금액 or 비율
+}
+
+/** 백테스트 결과 */
+export interface BacktestResult {
+  // 기본 정보
+  config: BacktestConfig;
+  strategy: TradingStrategy;
+
+  // 거래 통계
+  totalTrades: number;
+  winningTrades: number;
+  losingTrades: number;
+  winRate: number;
+
+  // 수익률 지표
+  totalReturn: number;
+  annualizedReturn: number;
+
+  // 위험 지표
+  maxDrawdown: number;
+  maxDrawdownDuration: number; // 최대 낙폭 지속 기간 (일)
+  sharpeRatio: number;
+  sortinoRatio: number;
+  calmarRatio: number;
+
+  // 상세 통계
+  avgWinPct: number;
+  avgLossPct: number;
+  profitFactor: number;
+  expectancy: number; // 기대값
+  avgHoldingDays: number;
+  maxConsecutiveWins: number;
+  maxConsecutiveLosses: number;
+
+  // 상세 데이터
+  trades: Trade[];
+  equityCurve: { time: number; value: number }[];
+  drawdownCurve: { time: number; value: number }[];
+  monthlyReturns: { month: string; return: number }[];
+}
+
+/** 알림 설정 */
+export interface AlertConfig {
+  id: string;
+  presetId: string;
+  symbols: string[];
+  isActive: boolean;
+  emailEnabled: boolean;
+  pushEnabled: boolean;
+  minPrice?: number;
+  maxPrice?: number;
+}
+
+/** 알림 메시지 */
+export interface AlertMessage {
+  id: string;
+  symbol: string;
+  stockName: string;
+  signalType: 'buy' | 'sell';
+  price: number;
+  strategyName: string;
+  reason: string;
+  timestamp: number;
+  isRead: boolean;
+}
+
+/** 프리셋 with 성능 메타데이터 */
+export interface SignalPresetWithStats {
+  id: string;
+  name: string;
+  description?: string;
+  buyRules: Condition;
+  sellRules: Condition;
+  isDefault: boolean;
+  isActive: boolean;
+  lastBacktestAt?: Date;
+  winRate?: number;
+  totalReturn?: number;
+  maxDrawdown?: number;
+  sharpeRatio?: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
