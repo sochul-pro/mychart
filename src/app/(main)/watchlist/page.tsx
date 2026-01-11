@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback } from 'react';
-import { Plus, Loader2, Trash2 } from 'lucide-react';
+import { Plus, Loader2, Trash2, MoreHorizontal, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -12,6 +12,12 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -197,6 +203,8 @@ export default function WatchlistPage() {
               onSelectStock={handleSelectStock}
               onDeleteItem={handleDeleteItem}
               onAddStock={() => setSearchDialogGroup(group)}
+              onRenameGroup={handleRenameGroup}
+              onDeleteGroup={handleDeleteGroup}
             />
           ))}
         </div>
@@ -325,6 +333,8 @@ interface WatchlistGroupCardWithSelectionProps {
   onSelectStock: (symbol: string) => void;
   onDeleteItem: (groupId: string, itemId: string) => Promise<void>;
   onAddStock: () => void;
+  onRenameGroup: (groupId: string, name: string) => Promise<void>;
+  onDeleteGroup: (groupId: string) => Promise<void>;
 }
 
 function WatchlistGroupCardWithSelection({
@@ -333,54 +343,165 @@ function WatchlistGroupCardWithSelection({
   onSelectStock,
   onDeleteItem,
   onAddStock,
+  onRenameGroup,
+  onDeleteGroup,
 }: WatchlistGroupCardWithSelectionProps) {
+  const [isRenameOpen, setIsRenameOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [newName, setNewName] = useState(group.name);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleRename = async () => {
+    if (!newName.trim()) return;
+    setIsLoading(true);
+    try {
+      await onRenameGroup(group.id, newName.trim());
+      setIsRenameOpen(false);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setIsLoading(true);
+    try {
+      await onDeleteGroup(group.id);
+      setIsDeleteOpen(false);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
-    <Card className="w-full">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <div className="flex items-center gap-2">
-          <CardTitle className="text-lg font-semibold">{group.name}</CardTitle>
-          <span className="text-sm text-muted-foreground">({group.items.length})</span>
-        </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onClick={onAddStock}
-          title="종목 추가"
-        >
-          <Plus className="h-4 w-4" />
-        </Button>
-      </CardHeader>
-      <CardContent className="px-2">
-        {group.items.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-4">
-            종목을 추가하세요
-          </p>
-        ) : (
-          <div>
-            {/* 테이블 헤더 */}
-            <div className="grid grid-cols-[1fr_70px_65px_28px] sm:grid-cols-[1fr_80px_80px_32px] items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 text-xs text-muted-foreground border-b mb-1">
-              <span>종목명</span>
-              <span className="text-right">현재가</span>
-              <span className="text-right">등락률</span>
-              <span></span>
+    <>
+      <Card className="w-full">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <div className="flex items-center gap-2">
+            <CardTitle className="text-lg font-semibold">{group.name}</CardTitle>
+            <span className="text-sm text-muted-foreground">({group.items.length})</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={onAddStock}
+              title="종목 추가"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => {
+                  setNewName(group.name);
+                  setIsRenameOpen(true);
+                }}>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  이름 변경
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onClick={() => setIsDeleteOpen(true)}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  삭제
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </CardHeader>
+        <CardContent className="px-2">
+          {group.items.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              종목을 추가하세요
+            </p>
+          ) : (
+            <div>
+              {/* 테이블 헤더 */}
+              <div className="grid grid-cols-[1fr_70px_65px_28px] sm:grid-cols-[1fr_80px_80px_32px] items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 text-xs text-muted-foreground border-b mb-1">
+                <span>종목명</span>
+                <span className="text-right">현재가</span>
+                <span className="text-right">등락률</span>
+                <span></span>
+              </div>
+              {/* 종목 행 */}
+              <div className="space-y-0">
+                {group.items.map((item) => (
+                  <WatchlistItemRowSelectable
+                    key={item.id}
+                    item={item}
+                    isSelected={item.symbol === selectedSymbol}
+                    onSelect={() => onSelectStock(item.symbol)}
+                    onDelete={() => onDeleteItem(group.id, item.id)}
+                  />
+                ))}
+              </div>
             </div>
-            {/* 종목 행 */}
-            <div className="space-y-0">
-              {group.items.map((item) => (
-                <WatchlistItemRowSelectable
-                  key={item.id}
-                  item={item}
-                  isSelected={item.symbol === selectedSymbol}
-                  onSelect={() => onSelectStock(item.symbol)}
-                  onDelete={() => onDeleteItem(group.id, item.id)}
-                />
-              ))}
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 이름 변경 다이얼로그 */}
+      <Dialog open={isRenameOpen} onOpenChange={setIsRenameOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>그룹 이름 변경</DialogTitle>
+            <DialogDescription>관심종목 그룹의 이름을 변경합니다.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor={`rename-${group.id}`}>이름</Label>
+              <Input
+                id={`rename-${group.id}`}
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="그룹 이름"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleRename();
+                  }
+                }}
+              />
             </div>
           </div>
-        )}
-      </CardContent>
-    </Card>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsRenameOpen(false)}>
+              취소
+            </Button>
+            <Button onClick={handleRename} disabled={isLoading}>
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              저장
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 삭제 확인 다이얼로그 */}
+      <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>그룹 삭제</DialogTitle>
+            <DialogDescription>
+              &apos;{group.name}&apos; 그룹을 삭제하시겠습니까? 그룹 내 모든 종목도 함께 삭제됩니다.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteOpen(false)}>
+              취소
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={isLoading}>
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              삭제
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
