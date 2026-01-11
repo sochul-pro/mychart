@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { z } from 'zod';
-import { PRESET_STRATEGIES } from '@/lib/signals/presets';
+import { getPresetStrategies } from '@/lib/signals/presets';
 
 // 조건 스키마 (간단한 유효성 검사)
 const conditionSchema = z.object({
@@ -21,7 +21,8 @@ export async function GET() {
   const session = await auth();
 
   // 기본 프리셋은 항상 반환
-  const defaultPresets = Object.values(PRESET_STRATEGIES).map((strategy) => ({
+  const strategies = getPresetStrategies();
+  const defaultPresets = strategies.map((strategy) => ({
     id: strategy.id,
     name: strategy.name,
     description: strategy.description,
