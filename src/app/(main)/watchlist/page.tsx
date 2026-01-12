@@ -238,7 +238,7 @@ export default function WatchlistPage() {
   );
 
   return (
-    <div className="container mx-auto py-4 sm:py-6 px-4">
+    <div className="w-full max-w-[2560px] mx-auto py-4 sm:py-6 px-4 lg:px-8 2xl:px-12">
       {/* 헤더 */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 sm:mb-6">
         <h1 className="text-xl sm:text-2xl font-bold">관심종목</h1>
