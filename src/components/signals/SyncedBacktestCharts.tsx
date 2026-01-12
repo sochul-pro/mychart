@@ -90,6 +90,9 @@ export function SyncedBacktestCharts({ result }: SyncedBacktestChartsProps) {
   // Sync lock to prevent infinite loops
   const isSyncingRef = useRef(false);
 
+  // Disposed flag to prevent accessing removed charts
+  const isDisposedRef = useRef(false);
+
   const { config, trades, equityCurve, drawdownCurve, maxDrawdown, maxDrawdownDuration } = result;
 
   // 날짜를 Date 객체로 변환
@@ -149,24 +152,29 @@ export function SyncedBacktestCharts({ result }: SyncedBacktestChartsProps) {
 
   // 시간축 동기화 함수 (가격 차트 기준으로만 동기화)
   const syncFromPriceChart = useCallback(() => {
-    if (isSyncingRef.current || !priceChartRef.current) return;
+    // 차트가 제거되었으면 동기화 중지
+    if (isDisposedRef.current || isSyncingRef.current || !priceChartRef.current) return;
 
-    const timeRange = priceChartRef.current.timeScale().getVisibleRange();
-    if (!timeRange) return;
+    try {
+      const timeRange = priceChartRef.current.timeScale().getVisibleRange();
+      if (!timeRange) return;
 
-    isSyncingRef.current = true;
+      isSyncingRef.current = true;
 
-    // 가격 차트 → 자산곡선, 낙폭 차트로만 동기화
-    if (equityChartRef.current) {
-      equityChartRef.current.timeScale().setVisibleRange(timeRange);
+      // 가격 차트 → 자산곡선, 낙폭 차트로만 동기화
+      if (equityChartRef.current) {
+        equityChartRef.current.timeScale().setVisibleRange(timeRange);
+      }
+      if (drawdownChartRef.current) {
+        drawdownChartRef.current.timeScale().setVisibleRange(timeRange);
+      }
+    } catch {
+      // 차트가 disposed 상태일 수 있음 - 무시
+    } finally {
+      requestAnimationFrame(() => {
+        isSyncingRef.current = false;
+      });
     }
-    if (drawdownChartRef.current) {
-      drawdownChartRef.current.timeScale().setVisibleRange(timeRange);
-    }
-
-    requestAnimationFrame(() => {
-      isSyncingRef.current = false;
-    });
   }, []);
 
   // 차트 초기화
@@ -318,8 +326,21 @@ export function SyncedBacktestCharts({ result }: SyncedBacktestChartsProps) {
 
     window.addEventListener('resize', handleResize);
 
+    // disposed 플래그 초기화
+    isDisposedRef.current = false;
+
     return () => {
+      // 먼저 disposed 플래그 설정
+      isDisposedRef.current = true;
+
       window.removeEventListener('resize', handleResize);
+
+      // refs 초기화
+      priceChartRef.current = null;
+      equityChartRef.current = null;
+      drawdownChartRef.current = null;
+
+      // 차트 제거
       priceChart.remove();
       equityChart.remove();
       drawdownChart.remove();

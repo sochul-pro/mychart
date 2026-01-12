@@ -53,6 +53,7 @@ export class BacktestEngine {
 
   /**
    * 거래 시뮬레이션
+   * Note: 신호 생성(generateSignals)에서 이미 포지션 상태와 같은 날 충돌을 처리함
    */
   private simulateTrades(data: OHLCV[], signals: Signal[]): Trade[] {
     const trades: Trade[] = [];
@@ -153,8 +154,8 @@ export class BacktestEngine {
     const { maxDrawdown, maxDrawdownDuration, drawdownCurve } =
       this.calculateDrawdown(equityCurve);
 
-    // 위험 조정 수익률
-    const dailyReturns = this.calculateDailyReturns(closedTrades);
+    // 위험 조정 수익률 (일별 수익률 기반)
+    const dailyReturns = this.calculateDailyReturnsFromEquity(equityCurve);
     const sharpeRatio = this.calculateSharpeRatio(dailyReturns);
     const sortinoRatio = this.calculateSortinoRatio(dailyReturns);
     const calmarRatio = maxDrawdown !== 0 ? annualizedReturn / Math.abs(maxDrawdown) : 0;
@@ -254,45 +255,49 @@ export class BacktestEngine {
     data: OHLCV[]
   ): { time: number; value: number }[] {
     const curve: { time: number; value: number }[] = [];
-    let equity = this.config.initialCapital;
 
-    // 거래별 PnL을 시간별로 매핑
-    const pnlByTime = new Map<number, number>();
+    // 거래를 시간순으로 정렬하고 진입/청산 이벤트 생성
+    const events: { time: number; type: 'entry' | 'exit'; trade: Trade }[] = [];
     for (const trade of trades) {
-      if (trade.exitTime && trade.pnl !== undefined) {
-        const existing = pnlByTime.get(trade.exitTime) || 0;
-        pnlByTime.set(trade.exitTime, existing + trade.pnl);
+      events.push({ time: trade.entryTime, type: 'entry', trade });
+      if (trade.exitTime) {
+        events.push({ time: trade.exitTime, type: 'exit', trade });
       }
     }
+    events.sort((a, b) => a.time - b.time);
 
-    // 열린 포지션 추적을 위한 거래 시작/종료 정보
-    const tradeMap = new Map<number, { entry: number; exit: number | undefined; quantity: number; entryPrice: number }>();
-    for (const trade of trades) {
-      tradeMap.set(trade.entryTime, {
-        entry: trade.entryTime,
-        exit: trade.exitTime,
-        quantity: trade.quantity,
-        entryPrice: trade.entryPrice,
-      });
+    // 이벤트를 시간별로 그룹화
+    const eventsByTime = new Map<number, { entries: Trade[]; exits: Trade[] }>();
+    for (const event of events) {
+      const existing = eventsByTime.get(event.time) || { entries: [], exits: [] };
+      if (event.type === 'entry') {
+        existing.entries.push(event.trade);
+      } else {
+        existing.exits.push(event.trade);
+      }
+      eventsByTime.set(event.time, existing);
     }
 
     // 일별 자산 추적
     let realizedPnl = 0;
     let openTrade: { quantity: number; entryPrice: number } | null = null;
 
-    for (let i = 0; i < data.length; i++) {
-      const d = data[i];
+    for (const d of data) {
+      const dayEvents = eventsByTime.get(d.time);
 
-      // 해당 날짜에 포지션 진입
-      if (tradeMap.has(d.time)) {
-        const info = tradeMap.get(d.time)!;
-        openTrade = { quantity: info.quantity, entryPrice: info.entryPrice };
-      }
+      if (dayEvents) {
+        // 청산 먼저 처리 (같은 날 청산 후 진입 가능)
+        for (const trade of dayEvents.exits) {
+          if (trade.pnl !== undefined) {
+            realizedPnl += trade.pnl;
+          }
+          openTrade = null;
+        }
 
-      // 해당 날짜에 실현 손익 발생
-      if (pnlByTime.has(d.time)) {
-        realizedPnl += pnlByTime.get(d.time)!;
-        openTrade = null; // 포지션 종료
+        // 진입 처리
+        for (const trade of dayEvents.entries) {
+          openTrade = { quantity: trade.quantity, entryPrice: trade.entryPrice };
+        }
       }
 
       // 현재 자산 계산 (실현 + 미실현)
@@ -361,14 +366,28 @@ export class BacktestEngine {
   }
 
   /**
-   * 일별 수익률 계산
+   * 자산곡선에서 일별 수익률 계산
    */
-  private calculateDailyReturns(trades: Trade[]): number[] {
-    return trades.map((t) => t.returnPct || 0);
+  private calculateDailyReturnsFromEquity(
+    equityCurve: { time: number; value: number }[]
+  ): number[] {
+    if (equityCurve.length < 2) return [];
+
+    const returns: number[] = [];
+    for (let i = 1; i < equityCurve.length; i++) {
+      const prevValue = equityCurve[i - 1].value;
+      const currValue = equityCurve[i].value;
+      if (prevValue > 0) {
+        returns.push(((currValue - prevValue) / prevValue) * 100);
+      }
+    }
+    return returns;
   }
 
   /**
-   * 샤프 비율 계산
+   * 샤프 비율 계산 (일별 수익률 기반)
+   * @param returns 일별 수익률 배열 (%)
+   * @param riskFreeRate 연간 무위험 수익률 (기본 3%)
    */
   private calculateSharpeRatio(returns: number[], riskFreeRate: number = 0.03): number {
     if (returns.length < 2) return 0;
@@ -380,16 +399,18 @@ export class BacktestEngine {
 
     if (stdDev === 0) return 0;
 
-    // 거래 기반 수익률을 연환산 (가정: 평균 20거래/년)
-    const tradesPerYear = Math.min(returns.length, 20);
-    const annualizedReturn = avgReturn * tradesPerYear;
-    const annualizedStd = stdDev * Math.sqrt(tradesPerYear);
+    // 일별 수익률을 연환산 (252 거래일 기준)
+    const tradingDaysPerYear = 252;
+    const annualizedReturn = avgReturn * tradingDaysPerYear;
+    const annualizedStd = stdDev * Math.sqrt(tradingDaysPerYear);
 
     return (annualizedReturn - riskFreeRate * 100) / annualizedStd;
   }
 
   /**
-   * 소르티노 비율 계산
+   * 소르티노 비율 계산 (일별 수익률 기반)
+   * @param returns 일별 수익률 배열 (%)
+   * @param riskFreeRate 연간 무위험 수익률 (기본 3%)
    */
   private calculateSortinoRatio(
     returns: number[],
@@ -408,9 +429,10 @@ export class BacktestEngine {
 
     if (downsideDeviation === 0) return 0;
 
-    const tradesPerYear = Math.min(returns.length, 20);
-    const annualizedReturn = avgReturn * tradesPerYear;
-    const annualizedDownside = downsideDeviation * Math.sqrt(tradesPerYear);
+    // 일별 수익률을 연환산 (252 거래일 기준)
+    const tradingDaysPerYear = 252;
+    const annualizedReturn = avgReturn * tradingDaysPerYear;
+    const annualizedDownside = downsideDeviation * Math.sqrt(tradingDaysPerYear);
 
     return (annualizedReturn - riskFreeRate * 100) / annualizedDownside;
   }
@@ -497,8 +519,9 @@ export function runBacktest(
 ): BacktestResult {
   const defaultConfig: BacktestConfig = {
     symbol: '',
-    startDate: new Date(data[0]?.time * 1000 || Date.now()),
-    endDate: new Date(data[data.length - 1]?.time * 1000 || Date.now()),
+    // OHLCV time은 이미 밀리초 단위
+    startDate: new Date(data[0]?.time || Date.now()),
+    endDate: new Date(data[data.length - 1]?.time || Date.now()),
     initialCapital: 10000000,
     commission: 0.015,
     slippage: 0.1,

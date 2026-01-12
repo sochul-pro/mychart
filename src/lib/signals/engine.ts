@@ -128,25 +128,38 @@ export function generateSignals(
   // 첫 번째 유효 인덱스 찾기 (충분한 데이터가 있어야 함)
   const startIndex = Math.max(1, 30); // 최소 30개 데이터 필요
 
+  // 포지션 상태 추적
+  let hasPosition = false;
+
   for (let i = startIndex; i < data.length; i++) {
-    // 매수 조건 확인
-    if (evaluateCondition(strategy.buyCondition, data, i, cache)) {
+    const buyConditionMet = evaluateCondition(strategy.buyCondition, data, i, cache);
+    const sellConditionMet = evaluateCondition(strategy.sellCondition, data, i, cache);
+
+    // 같은 날 매수/매도 조건이 모두 충족되면 신호 생성하지 않음
+    if (buyConditionMet && sellConditionMet) {
+      continue;
+    }
+
+    // 매수 조건 확인 (포지션이 없을 때만)
+    if (buyConditionMet && !hasPosition) {
       signals.push({
         type: 'buy',
         time: data[i].time,
         price: data[i].close,
         reason: getConditionDescription(strategy.buyCondition),
       });
+      hasPosition = true;
     }
 
-    // 매도 조건 확인
-    if (evaluateCondition(strategy.sellCondition, data, i, cache)) {
+    // 매도 조건 확인 (포지션이 있을 때만)
+    if (sellConditionMet && hasPosition) {
       signals.push({
         type: 'sell',
         time: data[i].time,
         price: data[i].close,
         reason: getConditionDescription(strategy.sellCondition),
       });
+      hasPosition = false;
     }
   }
 
