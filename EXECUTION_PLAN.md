@@ -634,6 +634,56 @@ npm run test:e2e:report # 테스트 리포트
 
 ---
 
+### MAINT-004: 백테스트 차트 및 날짜 처리 버그 수정 ✅
+**설명**: 백테스트 날짜 처리, OHLCV 캐시, 차트 UI 버그 수정
+**범위**:
+
+**1. 날짜 처리 버그 수정**
+- BacktestConfigPanel: UTC vs 로컬 시간 불일치 문제 수정
+  - `new Date(dateStr)` → `parseLocalDate(dateStr)` (로컬 자정으로 파싱)
+  - `toISOString().split('T')[0]` → 로컬 날짜 포맷팅
+- OHLCV 데이터(KST 자정)와 입력 날짜 일치시킴
+
+**2. OHLCV 캐시 버그 수정**
+- kis-provider.ts: 캐시에서 최신 데이터 대신 오래된 데이터를 반환하는 버그
+  - `cached.slice(0, limit)` → `cached.slice(-limit)`
+
+**3. 백테스트 엔진 개선**
+- backtest-engine.ts: 마지막 거래일 매수 방지
+  - 마지막 날 매수 시 바로 강제 청산되어 0일 보유 거래 발생
+  - 마지막 날 매수 신호 무시하도록 수정
+
+**4. 차트 UI 개선**
+- SyncedBacktestCharts.tsx:
+  - 차트 높이 조정: 가격(400→520px), 자산곡선(250→140px), 낙폭(150→140px)
+  - 이동평균선 추가: 5일(노란), 10일(분홍), 20일(녹색), 60일(파란)
+  - 이동평균선 범례 추가
+  - 마커 필터링: 차트 데이터 범위 내의 거래만 표시
+
+**산출물**:
+- `src/components/signals/BacktestConfigPanel.tsx` (수정)
+- `src/components/signals/SyncedBacktestCharts.tsx` (수정)
+- `src/lib/api/kis-provider.ts` (수정)
+- `src/lib/signals/backtest-engine.ts` (수정)
+
+**완료**: 2026-01-12 (#58)
+
+---
+
+### MAINT-005: 내 전략 수정 폼 버그 수정 ✅
+**설명**: 내 전략 수정 시 기존 데이터가 표시되지 않는 버그 수정
+**범위**:
+- PresetForm.tsx: useState 초기값이 마운트 시 1번만 실행되어 preset prop 변경 시 반영 안됨
+- useEffect 추가하여 다이얼로그 열릴 때 폼 상태를 preset 데이터로 동기화
+- handleSubmit에서 불필요한 폼 초기화 코드 제거
+
+**산출물**:
+- `src/components/signals/PresetForm.tsx` (수정)
+
+**완료**: 2026-01-12 (#59)
+
+---
+
 ## Phase 7: 테마 시스템
 
 ### TASK-026: 테마 데이터 Provider 구현 ✅

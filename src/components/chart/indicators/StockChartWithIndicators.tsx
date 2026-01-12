@@ -11,6 +11,7 @@ import {
   ColorType,
   CrosshairMode,
   Time,
+  LogicalRange,
 } from 'lightweight-charts';
 import type { OHLCV, TimeFrame } from '@/types';
 import type { IndicatorConfig, MAConfig, BollingerConfig, RSIConfig, MACDConfig, StochasticConfig } from './types';
@@ -106,6 +107,10 @@ export function StockChartWithIndicators({
     new Map()
   );
 
+  // 동기화 관련 refs
+  const isSyncingRef = useRef(false);
+  const isDisposedRef = useRef(false);
+
   // 활성화된 지표 필터링
   const enabledIndicators = useMemo(
     () => indicators.filter((i) => i.enabled),
@@ -115,6 +120,65 @@ export function StockChartWithIndicators({
   const hasRSI = enabledIndicators.some((i) => i.type === 'rsi');
   const hasMACD = enabledIndicators.some((i) => i.type === 'macd');
   const hasStochastic = enabledIndicators.some((i) => i.type === 'stochastic');
+
+  // 시간축 동기화 함수 (메인 차트 기준)
+  const syncChartsFromMain = useCallback(() => {
+    if (isDisposedRef.current || isSyncingRef.current || !mainChartRef.current) return;
+
+    try {
+      const logicalRange = mainChartRef.current.timeScale().getVisibleLogicalRange();
+      if (!logicalRange) return;
+
+      isSyncingRef.current = true;
+
+      // RSI 차트 동기화
+      if (rsiChartRef.current) {
+        rsiChartRef.current.timeScale().setVisibleLogicalRange(logicalRange);
+      }
+      // MACD 차트 동기화
+      if (macdChartRef.current) {
+        macdChartRef.current.timeScale().setVisibleLogicalRange(logicalRange);
+      }
+      // Stochastic 차트 동기화
+      if (stochasticChartRef.current) {
+        stochasticChartRef.current.timeScale().setVisibleLogicalRange(logicalRange);
+      }
+    } catch {
+      // 차트가 disposed 상태일 수 있음 - 무시
+    } finally {
+      requestAnimationFrame(() => {
+        isSyncingRef.current = false;
+      });
+    }
+  }, []);
+
+  // 서브 차트의 시간축 변경을 메인 차트로 역방향 동기화
+  const syncMainFromSubChart = useCallback((logicalRange: LogicalRange | null) => {
+    if (isDisposedRef.current || isSyncingRef.current || !mainChartRef.current || !logicalRange) return;
+
+    try {
+      isSyncingRef.current = true;
+
+      mainChartRef.current.timeScale().setVisibleLogicalRange(logicalRange);
+
+      // 다른 서브 차트들도 동기화
+      if (rsiChartRef.current) {
+        rsiChartRef.current.timeScale().setVisibleLogicalRange(logicalRange);
+      }
+      if (macdChartRef.current) {
+        macdChartRef.current.timeScale().setVisibleLogicalRange(logicalRange);
+      }
+      if (stochasticChartRef.current) {
+        stochasticChartRef.current.timeScale().setVisibleLogicalRange(logicalRange);
+      }
+    } catch {
+      // 차트가 disposed 상태일 수 있음 - 무시
+    } finally {
+      requestAnimationFrame(() => {
+        isSyncingRef.current = false;
+      });
+    }
+  }, []);
 
   // 메인 차트 초기화
   useEffect(() => {
@@ -136,7 +200,7 @@ export function StockChartWithIndicators({
         borderColor: '#e0e0e0',
         scaleMargins: { top: 0.1, bottom: showVolume ? 0.25 : 0.1 },
       },
-      timeScale: { borderColor: '#e0e0e0', timeVisible: true },
+      timeScale: { borderColor: '#e0e0e0', timeVisible: true, fixRightEdge: true },
     });
 
     // 캔들스틱 시리즈
@@ -164,6 +228,12 @@ export function StockChartWithIndicators({
     }
 
     mainChartRef.current = chart;
+    isDisposedRef.current = false;
+
+    // 시간축 동기화 구독
+    chart.timeScale().subscribeVisibleLogicalRangeChange(() => {
+      syncChartsFromMain();
+    });
 
     const handleResize = () => {
       if (mainContainerRef.current && mainChartRef.current) {
@@ -177,12 +247,13 @@ export function StockChartWithIndicators({
 
     const currentSeriesRefs = seriesRefs.current;
     return () => {
+      isDisposedRef.current = true;
       window.removeEventListener('resize', handleResize);
       chart.remove();
       mainChartRef.current = null;
       currentSeriesRefs.clear();
     };
-  }, [height, showVolume, upColor, downColor]);
+  }, [height, showVolume, upColor, downColor, syncChartsFromMain]);
 
   // RSI 서브차트
   useEffect(() => {
@@ -210,7 +281,7 @@ export function StockChartWithIndicators({
         borderColor: '#e0e0e0',
         scaleMargins: { top: 0.1, bottom: 0.1 },
       },
-      timeScale: { visible: false },
+      timeScale: { visible: false, fixRightEdge: true },
     });
 
     const rsiSeries = chart.addLineSeries({
@@ -221,13 +292,35 @@ export function StockChartWithIndicators({
 
     rsiChartRef.current = chart;
 
+    // 역방향 동기화 구독 (RSI → 메인)
+    chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+      syncMainFromSubChart(range);
+    });
+
+    // 초기 동기화
+    if (mainChartRef.current) {
+      const logicalRange = mainChartRef.current.timeScale().getVisibleLogicalRange();
+      if (logicalRange) {
+        chart.timeScale().setVisibleLogicalRange(logicalRange);
+      }
+    }
+
+    // 리사이즈 핸들러
+    const handleResize = () => {
+      if (rsiContainerRef.current && rsiChartRef.current) {
+        rsiChartRef.current.applyOptions({ width: rsiContainerRef.current.clientWidth });
+      }
+    };
+    window.addEventListener('resize', handleResize);
+
     const currentSeriesRefs = seriesRefs.current;
     return () => {
+      window.removeEventListener('resize', handleResize);
       chart.remove();
       rsiChartRef.current = null;
       currentSeriesRefs.delete('rsi');
     };
-  }, [hasRSI, subChartHeight]);
+  }, [hasRSI, subChartHeight, syncMainFromSubChart]);
 
   // MACD 서브차트
   useEffect(() => {
@@ -255,7 +348,7 @@ export function StockChartWithIndicators({
         borderColor: '#e0e0e0',
         scaleMargins: { top: 0.1, bottom: 0.1 },
       },
-      timeScale: { visible: false },
+      timeScale: { visible: false, fixRightEdge: true },
     });
 
     const macdLineSeries = chart.addLineSeries({
@@ -276,15 +369,37 @@ export function StockChartWithIndicators({
 
     macdChartRef.current = chart;
 
+    // 역방향 동기화 구독 (MACD → 메인)
+    chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+      syncMainFromSubChart(range);
+    });
+
+    // 초기 동기화
+    if (mainChartRef.current) {
+      const logicalRange = mainChartRef.current.timeScale().getVisibleLogicalRange();
+      if (logicalRange) {
+        chart.timeScale().setVisibleLogicalRange(logicalRange);
+      }
+    }
+
+    // 리사이즈 핸들러
+    const handleResize = () => {
+      if (macdContainerRef.current && macdChartRef.current) {
+        macdChartRef.current.applyOptions({ width: macdContainerRef.current.clientWidth });
+      }
+    };
+    window.addEventListener('resize', handleResize);
+
     const currentSeriesRefs = seriesRefs.current;
     return () => {
+      window.removeEventListener('resize', handleResize);
       chart.remove();
       macdChartRef.current = null;
       currentSeriesRefs.delete('macd-line');
       currentSeriesRefs.delete('macd-signal');
       currentSeriesRefs.delete('macd-histogram');
     };
-  }, [hasMACD, subChartHeight]);
+  }, [hasMACD, subChartHeight, syncMainFromSubChart]);
 
   // Stochastic 서브차트
   useEffect(() => {
@@ -312,7 +427,7 @@ export function StockChartWithIndicators({
         borderColor: '#e0e0e0',
         scaleMargins: { top: 0.1, bottom: 0.1 },
       },
-      timeScale: { visible: false },
+      timeScale: { visible: false, fixRightEdge: true },
     });
 
     // %K 라인 (빠른 선)
@@ -331,14 +446,36 @@ export function StockChartWithIndicators({
 
     stochasticChartRef.current = chart;
 
+    // 역방향 동기화 구독 (Stochastic → 메인)
+    chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+      syncMainFromSubChart(range);
+    });
+
+    // 초기 동기화
+    if (mainChartRef.current) {
+      const logicalRange = mainChartRef.current.timeScale().getVisibleLogicalRange();
+      if (logicalRange) {
+        chart.timeScale().setVisibleLogicalRange(logicalRange);
+      }
+    }
+
+    // 리사이즈 핸들러
+    const handleResize = () => {
+      if (stochasticContainerRef.current && stochasticChartRef.current) {
+        stochasticChartRef.current.applyOptions({ width: stochasticContainerRef.current.clientWidth });
+      }
+    };
+    window.addEventListener('resize', handleResize);
+
     const currentSeriesRefs = seriesRefs.current;
     return () => {
+      window.removeEventListener('resize', handleResize);
       chart.remove();
       stochasticChartRef.current = null;
       currentSeriesRefs.delete('stochastic-k');
       currentSeriesRefs.delete('stochastic-d');
     };
-  }, [hasStochastic, subChartHeight]);
+  }, [hasStochastic, subChartHeight, syncMainFromSubChart]);
 
   // 시리즈 제거 함수
   const removeOverlaySeries = useCallback((seriesKey: string) => {
@@ -559,11 +696,20 @@ export function StockChartWithIndicators({
       }
     }
 
-    // 차트 맞춤
+    // 차트 맞춤 및 동기화
     mainChartRef.current?.timeScale().fitContent();
-    rsiChartRef.current?.timeScale().fitContent();
-    macdChartRef.current?.timeScale().fitContent();
-    stochasticChartRef.current?.timeScale().fitContent();
+
+    // 서브 차트들은 메인 차트의 범위를 따르도록 동기화
+    requestAnimationFrame(() => {
+      if (mainChartRef.current) {
+        const logicalRange = mainChartRef.current.timeScale().getVisibleLogicalRange();
+        if (logicalRange) {
+          rsiChartRef.current?.timeScale().setVisibleLogicalRange(logicalRange);
+          macdChartRef.current?.timeScale().setVisibleLogicalRange(logicalRange);
+          stochasticChartRef.current?.timeScale().setVisibleLogicalRange(logicalRange);
+        }
+      }
+    });
   }, [data, indicators, enabledIndicators, upColor, downColor, updateOverlayIndicator, cleanupDisabledOverlays]);
 
   // 타임프레임 변경 핸들러
