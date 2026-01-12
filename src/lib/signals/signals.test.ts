@@ -298,19 +298,19 @@ describe('Preset Strategies', () => {
 
   it('should return all strategies with getPresetStrategies', () => {
     const strategies = getPresetStrategies();
-    expect(strategies.length).toBe(6);
+    expect(strategies.length).toBe(3);
     expect(strategies.every((s) => s.id && s.name)).toBe(true);
   });
 
   it('should get specific strategy by id', () => {
-    const strategy = getPresetStrategy('golden_cross');
+    const strategy = getPresetStrategy('triple_screen');
     expect(strategy).toBeDefined();
-    expect(strategy?.name).toBe('골든크로스');
+    expect(strategy?.name).toBe('트리플 스크린');
   });
 
   it('should work with generateSignals', () => {
     const data = generateTestData(100);
-    const strategy = PRESET_STRATEGIES.rsi_oversold;
+    const strategy = PRESET_STRATEGIES.triple_screen;
     const result = generateSignals(strategy, data);
 
     expect(result).toHaveProperty('signals');

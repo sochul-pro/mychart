@@ -80,12 +80,9 @@ export interface IndicatorCache {
 
 /** 프리셋 전략 ID */
 export type PresetStrategyId =
-  | 'golden_cross'
-  | 'death_cross'
-  | 'rsi_oversold'
-  | 'rsi_overbought'
-  | 'macd_crossover'
-  | 'bollinger_breakout';
+  | 'triple_screen'
+  | 'trend_momentum'
+  | 'bollinger_trend';
 
 /** 신호 생성 결과 */
 export interface SignalResult {
