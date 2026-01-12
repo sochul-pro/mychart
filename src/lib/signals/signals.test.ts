@@ -288,12 +288,9 @@ describe('generateSignals', () => {
 
 describe('Preset Strategies', () => {
   it('should have all preset strategies', () => {
-    expect(PRESET_STRATEGIES).toHaveProperty('golden_cross');
-    expect(PRESET_STRATEGIES).toHaveProperty('death_cross');
-    expect(PRESET_STRATEGIES).toHaveProperty('rsi_oversold');
-    expect(PRESET_STRATEGIES).toHaveProperty('rsi_overbought');
-    expect(PRESET_STRATEGIES).toHaveProperty('macd_crossover');
-    expect(PRESET_STRATEGIES).toHaveProperty('bollinger_breakout');
+    expect(PRESET_STRATEGIES).toHaveProperty('triple_screen');
+    expect(PRESET_STRATEGIES).toHaveProperty('trend_momentum');
+    expect(PRESET_STRATEGIES).toHaveProperty('bollinger_trend');
   });
 
   it('should return all strategies with getPresetStrategies', () => {

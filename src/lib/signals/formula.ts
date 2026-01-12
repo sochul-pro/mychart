@@ -104,8 +104,9 @@ function singleConditionToFormula(condition: SingleCondition): string {
   if (typeof condition.value === 'number') {
     value = condition.value.toString();
   } else {
-    // 다른 지표와 비교
-    value = indicatorToString(condition.value as SignalIndicator, condition.params);
+    // 다른 지표와 비교 - valueParams가 있으면 사용
+    const valueIndicatorParams = condition.valueParams ?? condition.params;
+    value = indicatorToString(condition.value as SignalIndicator, valueIndicatorParams);
   }
 
   return `${indicator} ${op} ${value}`;
@@ -513,15 +514,15 @@ class FormulaParser {
       }
 
       let value: number | SignalIndicator;
-      let params = params1;
+      let valueParams: Record<string, number> | undefined;
 
       if (valueToken.type === 'NUMBER') {
         value = parseFloat(valueToken.value);
       } else if (valueToken.type === 'INDICATOR') {
         value = parseIndicatorName(valueToken.value);
-        // 비교 대상 지표의 파라미터도 적용
+        // 비교 대상 지표의 파라미터를 별도로 저장
         if (valueToken.params) {
-          params = { ...params, ...valueToken.params };
+          valueParams = valueToken.params;
         }
       } else {
         throw new Error(`Unexpected token: ${valueToken.value}`);
@@ -532,7 +533,8 @@ class FormulaParser {
         indicator: indicator1,
         operator,
         value,
-        params,
+        params: params1,
+        valueParams,
       } as SingleCondition;
     }
 

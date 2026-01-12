@@ -61,8 +61,9 @@ function evaluateSingleCondition(
   if (typeof condition.value === 'number') {
     value2 = condition.value;
   } else {
-    // 다른 지표와 비교
-    const compareValues = getIndicatorValues(data, condition.value, condition.params, cache);
+    // 다른 지표와 비교 - valueParams가 있으면 사용, 없으면 params 사용
+    const compareParams = condition.valueParams ?? condition.params;
+    const compareValues = getIndicatorValues(data, condition.value, compareParams, cache);
     value2 = compareValues[index];
   }
 

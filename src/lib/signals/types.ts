@@ -27,6 +27,7 @@ export interface SingleCondition {
   operator: ComparisonOperator;
   value: number | SignalIndicator; // 고정값 또는 다른 지표와 비교
   params?: Record<string, number>; // 지표 파라미터 (예: period)
+  valueParams?: Record<string, number>; // 비교 대상 지표의 파라미터 (value가 지표일 때)
 }
 
 /** 크로스오버 조건 */

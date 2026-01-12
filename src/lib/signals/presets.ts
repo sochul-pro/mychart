@@ -21,6 +21,7 @@ export const PRESET_STRATEGIES: Record<PresetStrategyId, TradingStrategy> = {
           operator: 'gt',
           value: 'sma',
           params: { period: 20 },
+          valueParams: { period: 60 },
         },
         // MACD > 0 - 모멘텀 확인
         {
@@ -86,7 +87,7 @@ export const PRESET_STRATEGIES: Record<PresetStrategyId, TradingStrategy> = {
           indicator: 'price',
           operator: 'gt',
           value: 'sma',
-          params: { period: 20 },
+          valueParams: { period: 20 },
         },
         // SMA(20) > SMA(60) - 정배열
         {
@@ -95,6 +96,7 @@ export const PRESET_STRATEGIES: Record<PresetStrategyId, TradingStrategy> = {
           operator: 'gt',
           value: 'sma',
           params: { period: 20 },
+          valueParams: { period: 60 },
         },
         // Volume > Volume_MA(20) - 거래량 증가
         {
@@ -102,7 +104,7 @@ export const PRESET_STRATEGIES: Record<PresetStrategyId, TradingStrategy> = {
           indicator: 'volume',
           operator: 'gt',
           value: 'volume_ma',
-          params: { period: 20 },
+          valueParams: { period: 20 },
         },
       ],
     },
@@ -115,7 +117,7 @@ export const PRESET_STRATEGIES: Record<PresetStrategyId, TradingStrategy> = {
           indicator: 'price',
           operator: 'lt',
           value: 'sma',
-          params: { period: 20 },
+          valueParams: { period: 20 },
         },
         // 데드크로스 - SMA(20) cross_below SMA(60)
         {
@@ -176,7 +178,7 @@ export const PRESET_STRATEGIES: Record<PresetStrategyId, TradingStrategy> = {
               indicator: 'price',
               operator: 'gt',
               value: 'bollinger_upper',
-              params: { period: 20, stdDev: 2 },
+              valueParams: { period: 20, stdDev: 2 },
             },
             {
               type: 'single',
