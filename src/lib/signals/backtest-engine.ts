@@ -235,8 +235,9 @@ export class BacktestEngine {
   private calculateAnnualizedReturn(totalReturn: number, data: OHLCV[]): number {
     if (data.length < 2) return 0;
 
-    const startTime = data[0].time * 1000;
-    const endTime = data[data.length - 1].time * 1000;
+    // 시간은 이미 밀리초 단위
+    const startTime = data[0].time;
+    const endTime = data[data.length - 1].time;
     const days = (endTime - startTime) / (1000 * 60 * 60 * 24);
 
     if (days < 1) return totalReturn;
@@ -246,7 +247,7 @@ export class BacktestEngine {
   }
 
   /**
-   * 자산 곡선 생성
+   * 자산 곡선 생성 (일별 데이터)
    */
   private buildEquityCurve(
     trades: Trade[],
@@ -255,17 +256,54 @@ export class BacktestEngine {
     const curve: { time: number; value: number }[] = [];
     let equity = this.config.initialCapital;
 
-    // 초기값
-    if (data.length > 0) {
-      curve.push({ time: data[0].time, value: equity });
-    }
-
-    // 각 거래 후 자산 업데이트
+    // 거래별 PnL을 시간별로 매핑
+    const pnlByTime = new Map<number, number>();
     for (const trade of trades) {
       if (trade.exitTime && trade.pnl !== undefined) {
-        equity += trade.pnl;
-        curve.push({ time: trade.exitTime, value: equity });
+        const existing = pnlByTime.get(trade.exitTime) || 0;
+        pnlByTime.set(trade.exitTime, existing + trade.pnl);
       }
+    }
+
+    // 열린 포지션 추적을 위한 거래 시작/종료 정보
+    const tradeMap = new Map<number, { entry: number; exit: number | undefined; quantity: number; entryPrice: number }>();
+    for (const trade of trades) {
+      tradeMap.set(trade.entryTime, {
+        entry: trade.entryTime,
+        exit: trade.exitTime,
+        quantity: trade.quantity,
+        entryPrice: trade.entryPrice,
+      });
+    }
+
+    // 일별 자산 추적
+    let realizedPnl = 0;
+    let openTrade: { quantity: number; entryPrice: number } | null = null;
+
+    for (let i = 0; i < data.length; i++) {
+      const d = data[i];
+
+      // 해당 날짜에 포지션 진입
+      if (tradeMap.has(d.time)) {
+        const info = tradeMap.get(d.time)!;
+        openTrade = { quantity: info.quantity, entryPrice: info.entryPrice };
+      }
+
+      // 해당 날짜에 실현 손익 발생
+      if (pnlByTime.has(d.time)) {
+        realizedPnl += pnlByTime.get(d.time)!;
+        openTrade = null; // 포지션 종료
+      }
+
+      // 현재 자산 계산 (실현 + 미실현)
+      let currentEquity = this.config.initialCapital + realizedPnl;
+      if (openTrade) {
+        // 미실현 손익 계산
+        const unrealizedPnl = openTrade.quantity * (d.close - openTrade.entryPrice);
+        currentEquity += unrealizedPnl;
+      }
+
+      curve.push({ time: d.time, value: currentEquity });
     }
 
     return curve;
@@ -316,8 +354,8 @@ export class BacktestEngine {
       }
     }
 
-    // 일 단위로 변환
-    const durationDays = Math.ceil(maxDrawdownDuration / (24 * 60 * 60));
+    // 일 단위로 변환 (밀리초 → 일)
+    const durationDays = Math.ceil(maxDrawdownDuration / (24 * 60 * 60 * 1000));
 
     return { maxDrawdown, maxDrawdownDuration: durationDays, drawdownCurve };
   }
@@ -386,8 +424,9 @@ export class BacktestEngine {
     const holdingDays = trades
       .filter((t) => t.entryTime && t.exitTime)
       .map((t) => {
-        const entry = t.entryTime * 1000;
-        const exit = (t.exitTime || 0) * 1000;
+        // 시간은 이미 밀리초 단위
+        const entry = t.entryTime;
+        const exit = t.exitTime || 0;
         return (exit - entry) / (1000 * 60 * 60 * 24);
       });
 
@@ -432,7 +471,8 @@ export class BacktestEngine {
     for (const trade of trades) {
       if (!trade.exitTime || trade.pnl === undefined) continue;
 
-      const date = new Date(trade.exitTime * 1000);
+      // exitTime은 이미 밀리초 단위
+      const date = new Date(trade.exitTime);
       const month = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 
       monthlyPnl.set(month, (monthlyPnl.get(month) || 0) + trade.pnl);

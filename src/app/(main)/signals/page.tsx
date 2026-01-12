@@ -10,9 +10,7 @@ import { SymbolSelect } from '@/components/signals/SymbolSelect';
 import { PresetManager } from '@/components/signals/PresetManager';
 import { BacktestConfigPanel } from '@/components/signals/BacktestConfigPanel';
 import { BacktestSummaryCards, BacktestDetailStats } from '@/components/signals/BacktestSummaryCards';
-import { BacktestPriceChart } from '@/components/signals/BacktestPriceChart';
-import { EquityCurveChart } from '@/components/signals/EquityCurveChart';
-import { DrawdownChart } from '@/components/signals/DrawdownChart';
+import { SyncedBacktestCharts } from '@/components/signals/SyncedBacktestCharts';
 import { MonthlyReturnsTable } from '@/components/signals/MonthlyReturnsTable';
 import { TradeHistoryTable } from '@/components/signals/TradeHistoryTable';
 import { useBacktest, useBacktestConfig } from '@/hooks/useBacktest';
@@ -169,12 +167,8 @@ export default function SignalsPage() {
               {/* Summary Cards */}
               <BacktestSummaryCards result={lastResult} />
 
-              {/* Price Chart with Buy/Sell Markers */}
-              <BacktestPriceChart result={lastResult} />
-
-              {/* Charts */}
-              <EquityCurveChart result={lastResult} />
-              <DrawdownChart result={lastResult} />
+              {/* Synced Charts: Price, Equity, Drawdown */}
+              <SyncedBacktestCharts result={lastResult} />
 
               {/* Detail Tabs */}
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
