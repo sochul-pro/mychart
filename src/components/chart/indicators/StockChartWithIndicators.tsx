@@ -150,6 +150,18 @@ export function StockChartWithIndicators({
   const hasMACD = enabledIndicators.some((i) => i.type === 'macd');
   const hasStochastic = enabledIndicators.some((i) => i.type === 'stochastic');
 
+  // 이동평균선 범례 데이터
+  const maLegendData = useMemo(() => {
+    const maIndicators = enabledIndicators.filter(
+      (i) => i.type === 'sma' || i.type === 'ema'
+    ) as MAConfig[];
+
+    return maIndicators.map((config) => ({
+      period: config.period,
+      color: config.color || '#2196F3',
+    }));
+  }, [enabledIndicators]);
+
   // 시간축 동기화 함수 (메인 차트 기준)
   const syncChartsFromMain = useCallback(() => {
     if (isDisposedRef.current || isSyncingRef.current || !mainChartRef.current) return;
@@ -760,24 +772,44 @@ export function StockChartWithIndicators({
 
   return (
     <div className={`flex flex-col ${className}`} data-testid="stock-chart-with-indicators">
-      {/* 타임프레임 선택 */}
-      {onTimeFrameChange && (
-        <div className="mb-1 flex gap-1">
-          {(['D', 'W', 'M'] as TimeFrame[]).map((tf) => (
-            <button
-              key={tf}
-              onClick={() => handleTimeFrameChange(tf)}
-              className={`rounded px-3 py-1 text-sm font-medium transition-colors ${
-                timeFrame === tf
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              {timeFrameLabels[tf]}
-            </button>
-          ))}
-        </div>
-      )}
+      {/* 타임프레임 선택 + 이동평균선 범례 */}
+      <div className="mb-1 flex items-center justify-between flex-wrap gap-1">
+        {/* 타임프레임 선택 */}
+        {onTimeFrameChange && (
+          <div className="flex gap-1">
+            {(['D', 'W', 'M'] as TimeFrame[]).map((tf) => (
+              <button
+                key={tf}
+                onClick={() => handleTimeFrameChange(tf)}
+                className={`rounded px-3 py-1 text-sm font-medium transition-colors ${
+                  timeFrame === tf
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {timeFrameLabels[tf]}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* 이동평균선 범례 */}
+        {maLegendData.length > 0 && (
+          <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
+            {maLegendData.map((ma) => (
+              <div key={`ma-${ma.period}`} className="flex items-center gap-1">
+                <span
+                  className="inline-block w-3 h-0.5 rounded"
+                  style={{ backgroundColor: ma.color }}
+                />
+                <span style={{ color: ma.color }}>
+                  {ma.period}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* 메인 차트 */}
       <div

@@ -53,21 +53,21 @@ export function FormulaEditor({
   const [isValid, setIsValid] = useState(true);
   const [showHelp, setShowHelp] = useState(false);
   const [showExamples, setShowExamples] = useState(false);
+  const [isUserEditing, setIsUserEditing] = useState(false);
 
-  // 조건이 외부에서 변경되면 수식 업데이트
+  // 외부에서 condition이 변경될 때만 수식 동기화 (사용자 편집 중이면 무시)
   useEffect(() => {
+    if (isUserEditing) return;
+
     const newFormula = conditionToFormula(condition);
-    if (newFormula !== formula) {
-      setFormula(newFormula);
-      setError(null);
-      setIsValid(true);
-    }
-  // formula를 의존성에서 제외 (무한 루프 방지)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [condition]);
+    setFormula(newFormula);
+    setError(null);
+    setIsValid(true);
+  }, [condition, isUserEditing]);
 
   // 수식 변경 핸들러
   const handleFormulaChange = useCallback((value: string) => {
+    setIsUserEditing(true); // 사용자 편집 중 표시
     setFormula(value);
 
     if (!value.trim()) {
@@ -91,6 +91,11 @@ export function FormulaEditor({
       setIsValid(false);
     }
   }, [onConditionChange]);
+
+  // 포커스 해제 시 편집 플래그 리셋
+  const handleBlur = useCallback(() => {
+    setIsUserEditing(false);
+  }, []);
 
   // 예제 클릭
   const handleExampleClick = useCallback((exampleFormula: string) => {
@@ -216,6 +221,7 @@ export function FormulaEditor({
         <Textarea
           value={formula}
           onChange={(e) => handleFormulaChange(e.target.value)}
+          onBlur={handleBlur}
           placeholder={placeholder}
           className={cn(
             'font-mono text-sm min-h-[80px] pr-8',
