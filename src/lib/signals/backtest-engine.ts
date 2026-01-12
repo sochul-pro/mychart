@@ -25,35 +25,30 @@ export class BacktestEngine {
    * 백테스트 실행
    */
   run(data: OHLCV[]): BacktestResult {
-    // 날짜 범위 필터링
-    const filteredData = this.filterDataByDateRange(data);
-
-    if (filteredData.length < 30) {
-      throw new Error('백테스트에 필요한 데이터가 부족합니다. 최소 30개 이상의 데이터가 필요합니다.');
-    }
-
-    // 신호 생성
-    const { signals } = generateSignals(this.strategy, filteredData);
-
-    // 거래 시뮬레이션
-    const trades = this.simulateTrades(filteredData, signals);
-
-    // 통계 계산
-    return this.calculateStatistics(trades, filteredData);
-  }
-
-  /**
-   * 날짜 범위로 데이터 필터링
-   */
-  private filterDataByDateRange(data: OHLCV[]): OHLCV[] {
     const startTime = this.config.startDate.getTime();
     const endTime = this.config.endDate.getTime();
 
-    return data.filter((d) => {
-      // time은 이미 밀리초 단위 (KIS provider에서 date.getTime() 사용)
-      const time = d.time;
-      return time >= startTime && time <= endTime;
-    });
+    // endDate까지의 데이터만 사용 (지표 계산을 위해 startDate 이전 데이터는 유지)
+    const dataUntilEnd = data.filter((d) => d.time <= endTime);
+
+    if (dataUntilEnd.length < 30) {
+      throw new Error('백테스트에 필요한 데이터가 부족합니다. 최소 30개 이상의 데이터가 필요합니다.');
+    }
+
+    // 신호 생성 (전체 데이터로 지표 계산)
+    const { signals: allSignals } = generateSignals(this.strategy, dataUntilEnd);
+
+    // 신호를 날짜 범위 내로 필터링
+    const signals = allSignals.filter((s) => s.time >= startTime && s.time <= endTime);
+
+    // 거래 범위 내 데이터만 추출 (통계 계산용)
+    const tradingData = dataUntilEnd.filter((d) => d.time >= startTime);
+
+    // 거래 시뮬레이션
+    const trades = this.simulateTrades(tradingData, signals);
+
+    // 통계 계산
+    return this.calculateStatistics(trades, tradingData);
   }
 
   /**

@@ -10,6 +10,7 @@ import { SymbolSelect } from '@/components/signals/SymbolSelect';
 import { PresetManager } from '@/components/signals/PresetManager';
 import { BacktestConfigPanel } from '@/components/signals/BacktestConfigPanel';
 import { BacktestSummaryCards, BacktestDetailStats } from '@/components/signals/BacktestSummaryCards';
+import { BacktestPriceChart } from '@/components/signals/BacktestPriceChart';
 import { EquityCurveChart } from '@/components/signals/EquityCurveChart';
 import { DrawdownChart } from '@/components/signals/DrawdownChart';
 import { MonthlyReturnsTable } from '@/components/signals/MonthlyReturnsTable';
@@ -167,6 +168,9 @@ export default function SignalsPage() {
 
               {/* Summary Cards */}
               <BacktestSummaryCards result={lastResult} />
+
+              {/* Price Chart with Buy/Sell Markers */}
+              <BacktestPriceChart result={lastResult} />
 
               {/* Charts */}
               <EquityCurveChart result={lastResult} />
