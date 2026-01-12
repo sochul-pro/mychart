@@ -399,8 +399,8 @@ export class BacktestEngine {
 
     if (stdDev === 0) return 0;
 
-    // 일별 수익률을 연환산 (252 거래일 기준)
-    const tradingDaysPerYear = 252;
+    // 일별 수익률을 연환산 (한국 주식시장 연간 거래일 기준)
+    const tradingDaysPerYear = 248;
     const annualizedReturn = avgReturn * tradingDaysPerYear;
     const annualizedStd = stdDev * Math.sqrt(tradingDaysPerYear);
 
@@ -429,8 +429,8 @@ export class BacktestEngine {
 
     if (downsideDeviation === 0) return 0;
 
-    // 일별 수익률을 연환산 (252 거래일 기준)
-    const tradingDaysPerYear = 252;
+    // 일별 수익률을 연환산 (한국 주식시장 연간 거래일 기준)
+    const tradingDaysPerYear = 248;
     const annualizedReturn = avgReturn * tradingDaysPerYear;
     const annualizedDownside = downsideDeviation * Math.sqrt(tradingDaysPerYear);
 
