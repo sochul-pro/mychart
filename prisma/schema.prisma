@@ -224,13 +224,14 @@ model AlertNotification {
 
 // 차트 설정
 model ChartSettings {
-  id              String   @id @default(cuid())
-  userId          String   @unique
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  defaultInterval String   @default("D") // D, W, M
-  indicators      Json     // 활성화된 지표 목록
-  theme           String   @default("dark")
-  updatedAt       DateTime @updatedAt
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  defaultInterval  String   @default("D") // D, W, M
+  indicators       Json     // 활성화된 지표 목록
+  signalStrategies Json?    // 선택된 매매신호 전략 ID 목록
+  theme            String   @default("dark")
+  updatedAt        DateTime @updatedAt
 }
 
 // 관심 테마

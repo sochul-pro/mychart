@@ -22,6 +22,7 @@ const indicatorConfigSchema = z.object({
 const updateSettingsSchema = z.object({
   defaultInterval: z.enum(['D', 'W', 'M']).optional(),
   indicators: z.array(indicatorConfigSchema).optional(),
+  signalStrategies: z.array(z.string()).optional(), // 선택된 전략 ID 목록
   theme: z.enum(['light', 'dark']).optional(),
 });
 
@@ -42,6 +43,7 @@ export async function GET() {
     return NextResponse.json({
       defaultInterval: 'D',
       indicators: getDefaultIndicators(),
+      signalStrategies: [],
       theme: 'light',
     });
   }
@@ -49,6 +51,7 @@ export async function GET() {
   return NextResponse.json({
     defaultInterval: settings.defaultInterval,
     indicators: settings.indicators,
+    signalStrategies: settings.signalStrategies || [],
     theme: settings.theme,
   });
 }
@@ -71,7 +74,7 @@ export async function PUT(request: NextRequest) {
     );
   }
 
-  const { defaultInterval, indicators, theme } = parsed.data;
+  const { defaultInterval, indicators, signalStrategies, theme } = parsed.data;
 
   // upsert: 있으면 업데이트, 없으면 생성
   const settings = await db.chartSettings.upsert({
@@ -79,12 +82,14 @@ export async function PUT(request: NextRequest) {
     update: {
       ...(defaultInterval && { defaultInterval }),
       ...(indicators && { indicators }),
+      ...(signalStrategies !== undefined && { signalStrategies }),
       ...(theme && { theme }),
     },
     create: {
       userId: session.user.id,
       defaultInterval: defaultInterval || 'D',
       indicators: indicators || getDefaultIndicators(),
+      signalStrategies: signalStrategies || [],
       theme: theme || 'light',
     },
   });
@@ -92,6 +97,7 @@ export async function PUT(request: NextRequest) {
   return NextResponse.json({
     defaultInterval: settings.defaultInterval,
     indicators: settings.indicators,
+    signalStrategies: settings.signalStrategies || [],
     theme: settings.theme,
   });
 }

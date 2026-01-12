@@ -12,17 +12,32 @@ import {
   CrosshairMode,
   Time,
   LogicalRange,
+  SeriesMarker,
 } from 'lightweight-charts';
 import type { OHLCV, TimeFrame } from '@/types';
 import type { IndicatorConfig, MAConfig, BollingerConfig, RSIConfig, MACDConfig, StochasticConfig } from './types';
 import { isOverlayIndicator } from './types';
 import { sma, ema, bollingerBands, rsi, macd, stochastic } from '@/lib/indicators';
 
+/** 마커 모양 타입 */
+export type MarkerShape = 'arrowUp' | 'arrowDown' | 'circle' | 'square';
+
+/** 매매 신호 마커 */
+export interface SignalMarker {
+  time: number; // timestamp in milliseconds
+  type: 'buy' | 'sell';
+  color: string;
+  shape: MarkerShape;
+  strategyName: string;
+}
+
 export interface StockChartWithIndicatorsProps {
   /** OHLCV 데이터 */
   data: OHLCV[];
   /** 지표 설정 */
   indicators: IndicatorConfig[];
+  /** 매매 신호 마커 */
+  signalMarkers?: SignalMarker[];
   /** 차트 높이 (기본값: 400) */
   height?: number;
   /** 서브차트 높이 (기본값: 100) */
@@ -81,9 +96,23 @@ function toLineData(
 /**
  * 지표를 포함한 주식 차트 컴포넌트
  */
+/** 신호 마커를 차트 마커로 변환 */
+function toChartMarkers(signals: SignalMarker[]): SeriesMarker<Time>[] {
+  return signals
+    .map((signal) => ({
+      time: (signal.time / 1000) as Time,
+      position: signal.type === 'buy' ? 'belowBar' : 'aboveBar',
+      color: signal.color,
+      shape: signal.shape,
+      text: signal.type === 'buy' ? 'B' : 'S',
+    } as SeriesMarker<Time>))
+    .sort((a, b) => (a.time as number) - (b.time as number));
+}
+
 export function StockChartWithIndicators({
   data,
   indicators,
+  signalMarkers = [],
   height = 400,
   subChartHeight = 100,
   showVolume = true,
@@ -611,6 +640,9 @@ export function StockChartWithIndicators({
     const candleSeries = seriesRefs.current.get('candle');
     if (candleSeries) {
       (candleSeries as ISeriesApi<'Candlestick'>).setData(toChartData(data));
+      // 매매 신호 마커 설정
+      const markers = toChartMarkers(signalMarkers);
+      (candleSeries as ISeriesApi<'Candlestick'>).setMarkers(markers);
     }
 
     // 거래량 데이터
@@ -710,7 +742,7 @@ export function StockChartWithIndicators({
         }
       }
     });
-  }, [data, indicators, enabledIndicators, upColor, downColor, updateOverlayIndicator, cleanupDisabledOverlays]);
+  }, [data, indicators, signalMarkers, enabledIndicators, upColor, downColor, updateOverlayIndicator, cleanupDisabledOverlays]);
 
   // 타임프레임 변경 핸들러
   const handleTimeFrameChange = useCallback(

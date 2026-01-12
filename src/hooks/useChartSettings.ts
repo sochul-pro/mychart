@@ -5,6 +5,7 @@ import type { TimeFrame } from '@/types';
 interface ChartSettings {
   defaultInterval: TimeFrame;
   indicators: IndicatorConfig[];
+  signalStrategies: string[]; // 선택된 전략 ID 목록
   theme: 'light' | 'dark';
 }
 
@@ -46,6 +47,7 @@ function getDefaultSettings(): ChartSettings {
       { type: 'macd', fastPeriod: 12, slowPeriod: 26, signalPeriod: 9, color: '#00BCD4', enabled: false },
       { type: 'stochastic', kPeriod: 14, dPeriod: 3, overbought: 80, oversold: 20, color: '#4CAF50', enabled: false },
     ],
+    signalStrategies: [],
     theme: 'light',
   };
 }
@@ -70,6 +72,10 @@ export function useChartSettings() {
     mutation.mutate({ indicators });
   };
 
+  const updateSignalStrategies = (signalStrategies: string[]) => {
+    mutation.mutate({ signalStrategies });
+  };
+
   const updateDefaultInterval = (defaultInterval: TimeFrame) => {
     mutation.mutate({ defaultInterval });
   };
@@ -83,6 +89,7 @@ export function useChartSettings() {
     isLoading,
     isSaving: mutation.isPending,
     updateIndicators,
+    updateSignalStrategies,
     updateDefaultInterval,
     updateTheme,
   };
