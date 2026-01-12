@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Plus, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PresetCard } from './PresetCard';
 import { PresetForm } from './PresetForm';
 import { useSignalPresets } from '@/hooks/useSignalPresets';
+import { useSignalStore } from '@/stores/signalStore';
 import type { TradingStrategy, SignalPresetWithStats, Condition } from '@/lib/signals/types';
 
 interface PresetManagerProps {
@@ -25,9 +26,30 @@ export function PresetManager({ onSelectStrategy }: PresetManagerProps) {
     isUpdating,
   } = useSignalPresets();
 
+  // 캐시된 백테스트 통계 가져오기
+  const presetStats = useSignalStore((state) => state.presetStats);
+
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingPreset, setEditingPreset] = useState<SignalPresetWithStats | null>(null);
   const [activeTab, setActiveTab] = useState<'default' | 'custom'>('default');
+
+  // 기본 전략에 캐시된 통계 병합
+  const defaultPresetsWithStats = useMemo(() => {
+    return defaultPresets.map((preset) => {
+      const cachedStats = presetStats[preset.id];
+      if (cachedStats) {
+        return {
+          ...preset,
+          winRate: cachedStats.winRate,
+          totalReturn: cachedStats.totalReturn,
+          maxDrawdown: cachedStats.maxDrawdown,
+          sharpeRatio: cachedStats.sharpeRatio,
+          lastBacktestAt: new Date(cachedStats.lastBacktestAt),
+        };
+      }
+      return preset;
+    });
+  }, [defaultPresets, presetStats]);
 
   const handleCreate = async (data: {
     name: string;
@@ -96,7 +118,7 @@ export function PresetManager({ onSelectStrategy }: PresetManagerProps) {
 
         <TabsContent value="default" className="mt-4">
           <div className="grid gap-3">
-            {defaultPresets.map((preset) => (
+            {defaultPresetsWithStats.map((preset) => (
               <PresetCard
                 key={preset.id}
                 preset={preset}

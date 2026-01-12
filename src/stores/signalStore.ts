@@ -2,6 +2,16 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { TradingStrategy, SignalResult, BacktestResult, BacktestConfig } from '@/lib/signals/types';
 
+/** 프리셋별 백테스트 통계 캐시 */
+export interface PresetBacktestStats {
+  winRate: number;
+  totalReturn: number;
+  maxDrawdown: number;
+  sharpeRatio: number;
+  lastBacktestAt: string; // ISO string for JSON serialization
+  symbol: string;
+}
+
 interface SignalStore {
   // 현재 선택된 전략
   selectedStrategy: TradingStrategy | null;
@@ -32,6 +42,12 @@ interface SignalStore {
   toggleAlertPanel: () => void;
   isPresetManagerOpen: boolean;
   togglePresetManager: () => void;
+
+  // 프리셋별 백테스트 통계 캐시
+  presetStats: Record<string, PresetBacktestStats>;
+  setPresetStats: (presetId: string, stats: PresetBacktestStats) => void;
+  getPresetStats: (presetId: string) => PresetBacktestStats | undefined;
+  clearPresetStats: (presetId?: string) => void;
 }
 
 const getDefaultBacktestConfig = (): BacktestConfig => {
@@ -91,6 +107,25 @@ export const useSignalStore = create<SignalStore>()(
       isPresetManagerOpen: false,
       togglePresetManager: () =>
         set((state) => ({ isPresetManagerOpen: !state.isPresetManagerOpen })),
+
+      // 프리셋별 백테스트 통계 캐시
+      presetStats: {},
+      setPresetStats: (presetId, stats) =>
+        set((state) => ({
+          presetStats: { ...state.presetStats, [presetId]: stats },
+        })),
+      getPresetStats: (presetId) => {
+        // Note: This is a sync selector, use the state directly
+        return undefined; // Will be accessed via state.presetStats[presetId]
+      },
+      clearPresetStats: (presetId) =>
+        set((state) => {
+          if (presetId) {
+            const { [presetId]: _, ...rest } = state.presetStats;
+            return { presetStats: rest };
+          }
+          return { presetStats: {} };
+        }),
     }),
     {
       name: 'mychart-signals',
@@ -103,6 +138,7 @@ export const useSignalStore = create<SignalStore>()(
           commission: state.backtestConfig.commission,
           slippage: state.backtestConfig.slippage,
         },
+        presetStats: state.presetStats,
       }),
     }
   )

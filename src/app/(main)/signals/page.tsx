@@ -15,6 +15,7 @@ import { DrawdownChart } from '@/components/signals/DrawdownChart';
 import { MonthlyReturnsTable } from '@/components/signals/MonthlyReturnsTable';
 import { TradeHistoryTable } from '@/components/signals/TradeHistoryTable';
 import { useBacktest, useBacktestConfig } from '@/hooks/useBacktest';
+import { useSignalStore } from '@/stores/signalStore';
 import type { TradingStrategy } from '@/lib/signals/types';
 
 export default function SignalsPage() {
@@ -25,6 +26,7 @@ export default function SignalsPage() {
 
   const { config, updateConfig } = useBacktestConfig();
   const { runBacktest, isRunning, error, lastResult, clearResult } = useBacktest();
+  const setPresetStats = useSignalStore((state) => state.setPresetStats);
 
   const handleSelectStrategy = (strategy: TradingStrategy) => {
     setSelectedStrategy(strategy);
@@ -41,7 +43,19 @@ export default function SignalsPage() {
     if (!selectedStrategy || !selectedSymbol) return;
 
     try {
-      await runBacktest(selectedSymbol, selectedStrategy, config);
+      const response = await runBacktest(selectedSymbol, selectedStrategy, config);
+
+      // 백테스트 결과를 프리셋 통계 캐시에 저장
+      if (response?.result) {
+        setPresetStats(selectedStrategy.id, {
+          winRate: response.result.winRate,
+          totalReturn: response.result.totalReturn,
+          maxDrawdown: response.result.maxDrawdown,
+          sharpeRatio: response.result.sharpeRatio,
+          lastBacktestAt: new Date().toISOString(),
+          symbol: selectedSymbol,
+        });
+      }
     } catch (err) {
       console.error('Backtest error:', err);
     }
