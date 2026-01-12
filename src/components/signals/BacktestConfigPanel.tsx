@@ -17,8 +17,18 @@ interface BacktestConfigPanelProps {
 }
 
 export function BacktestConfigPanel({ config, onChange }: BacktestConfigPanelProps) {
+  // 날짜를 input[type="date"]용 문자열로 변환 (YYYY-MM-DD)
   const formatDateForInput = (date: Date) => {
-    return date.toISOString().split('T')[0];
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  // input[type="date"] 문자열을 로컬 시간 Date로 변환
+  const parseLocalDate = (dateStr: string): Date => {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day);
   };
 
   return (
@@ -33,7 +43,7 @@ export function BacktestConfigPanel({ config, onChange }: BacktestConfigPanelPro
           <Input
             type="date"
             value={formatDateForInput(config.startDate)}
-            onChange={(e) => onChange({ startDate: new Date(e.target.value) })}
+            onChange={(e) => onChange({ startDate: parseLocalDate(e.target.value) })}
           />
         </div>
         <div className="space-y-2">
@@ -44,7 +54,7 @@ export function BacktestConfigPanel({ config, onChange }: BacktestConfigPanelPro
           <Input
             type="date"
             value={formatDateForInput(config.endDate)}
-            onChange={(e) => onChange({ endDate: new Date(e.target.value) })}
+            onChange={(e) => onChange({ endDate: parseLocalDate(e.target.value) })}
           />
         </div>
       </div>

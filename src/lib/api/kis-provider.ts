@@ -296,10 +296,10 @@ export class KISProvider implements StockDataProvider {
     timeFrame: TimeFrame,
     limit: number = 100
   ): Promise<OHLCV[]> {
-    // 파일 캐시 확인
+    // 파일 캐시 확인 (최신 데이터 기준으로 반환)
     const cached = getOHLCVFromCache<OHLCV[]>(symbol, timeFrame);
     if (cached && cached.length >= limit) {
-      return cached.slice(0, limit);
+      return cached.slice(-limit);
     }
 
     const periodMap: Record<TimeFrame, string> = {

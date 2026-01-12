@@ -60,8 +60,14 @@ export class BacktestEngine {
     let currentTrade: Trade | null = null;
     const { commission, slippage, initialCapital, positionSizing, positionSize } = this.config;
 
+    // 마지막 거래일 (이 날에는 새 포지션을 열지 않음 - 바로 강제 청산되므로)
+    const lastTradingDay = data.length > 0 ? data[data.length - 1].time : 0;
+
     for (const signal of signals) {
       if (signal.type === 'buy' && !currentTrade) {
+        // 마지막 거래일에는 새 포지션을 열지 않음
+        if (signal.time >= lastTradingDay) continue;
+
         // 매수 진입
         const entryPrice = signal.price * (1 + slippage / 100);
         const amount =

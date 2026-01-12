@@ -70,6 +70,32 @@ function tradesToMarkers(trades: Trade[]): SeriesMarker<Time>[] {
   return markers;
 }
 
+/** 이동평균 계산 */
+function calculateSMA(data: OHLCV[], period: number): LineData<Time>[] {
+  const result: LineData<Time>[] = [];
+
+  for (let i = period - 1; i < data.length; i++) {
+    let sum = 0;
+    for (let j = 0; j < period; j++) {
+      sum += data[i - j].close;
+    }
+    result.push({
+      time: (data[i].time / 1000) as Time,
+      value: sum / period,
+    });
+  }
+
+  return result;
+}
+
+/** 이동평균선 색상 설정 */
+const MA_COLORS = {
+  5: '#f59e0b',   // 노란색 (5일)
+  10: '#ec4899',  // 분홍색 (10일)
+  20: '#22c55e',  // 녹색 (20일)
+  60: '#3b82f6',  // 파란색 (60일)
+} as const;
+
 export function SyncedBacktestCharts({ result }: SyncedBacktestChartsProps) {
   // Chart container refs
   const priceContainerRef = useRef<HTMLDivElement>(null);
@@ -127,27 +153,47 @@ export function SyncedBacktestCharts({ result }: SyncedBacktestChartsProps) {
     return ohlcvData.filter((d) => d.time >= startTime && d.time <= endTime);
   }, [ohlcvData, startDate, endDate]);
 
-  // 마커 생성
-  const markers = useMemo(() => tradesToMarkers(trades), [trades]);
+  // 차트 데이터의 실제 시간 범위 (OHLCV 데이터가 없는 구간의 마커 방지)
+  const chartTimeRange = useMemo(() => {
+    if (filteredData.length === 0) return { start: 0, end: 0 };
+    return {
+      start: filteredData[0].time,
+      end: filteredData[filteredData.length - 1].time,
+    };
+  }, [filteredData]);
 
-  // 자산곡선 데이터
+  // 마커 생성 (차트 데이터 범위 내의 거래만)
+  const markers = useMemo(() => {
+    const filteredTrades = trades.filter((trade) => {
+      const entryInRange = trade.entryTime >= chartTimeRange.start && trade.entryTime <= chartTimeRange.end;
+      const exitInRange = !trade.exitTime || (trade.exitTime >= chartTimeRange.start && trade.exitTime <= chartTimeRange.end);
+      return entryInRange || exitInRange;
+    });
+    return tradesToMarkers(filteredTrades);
+  }, [trades, chartTimeRange]);
+
+  // 자산곡선 데이터 (차트 데이터 범위 내만)
   const equityData: LineData<Time>[] = useMemo(
     () =>
-      equityCurve.map((point) => ({
-        time: (point.time / 1000) as Time,
-        value: point.value,
-      })),
-    [equityCurve]
+      equityCurve
+        .filter((point) => point.time >= chartTimeRange.start && point.time <= chartTimeRange.end)
+        .map((point) => ({
+          time: (point.time / 1000) as Time,
+          value: point.value,
+        })),
+    [equityCurve, chartTimeRange]
   );
 
-  // 낙폭 데이터
+  // 낙폭 데이터 (차트 데이터 범위 내만)
   const drawdownData: AreaData<Time>[] = useMemo(
     () =>
-      drawdownCurve.map((point) => ({
-        time: (point.time / 1000) as Time,
-        value: point.value,
-      })),
-    [drawdownCurve]
+      drawdownCurve
+        .filter((point) => point.time >= chartTimeRange.start && point.time <= chartTimeRange.end)
+        .map((point) => ({
+          time: (point.time / 1000) as Time,
+          value: point.value,
+        })),
+    [drawdownCurve, chartTimeRange]
   );
 
   // 시간축 동기화 함수 (가격 차트 기준으로만 동기화)
@@ -220,7 +266,7 @@ export function SyncedBacktestCharts({ result }: SyncedBacktestChartsProps) {
     const priceChart = createChart(priceContainerRef.current, {
       ...commonOptions,
       width: priceContainerRef.current.clientWidth,
-      height: 400,
+      height: 520,
     });
 
     const candleSeries = priceChart.addCandlestickSeries({
@@ -246,11 +292,25 @@ export function SyncedBacktestCharts({ result }: SyncedBacktestChartsProps) {
     volumeSeries.setData(toVolumeData(filteredData));
     candleSeries.setMarkers(markers);
 
+    // 이동평균선 추가 (5, 10, 20, 60일)
+    const maPeriods = [5, 10, 20, 60] as const;
+    maPeriods.forEach((period) => {
+      const maSeries = priceChart.addLineSeries({
+        color: MA_COLORS[period],
+        lineWidth: 1,
+        priceLineVisible: false,
+        lastValueVisible: false,
+        crosshairMarkerVisible: false,
+      });
+      const maData = calculateSMA(filteredData, period);
+      maSeries.setData(maData);
+    });
+
     // 2. 자산곡선 차트 생성
     const equityChart = createChart(equityContainerRef.current, {
       ...commonOptions,
       width: equityContainerRef.current.clientWidth,
-      height: 250,
+      height: 140,
     });
 
     const equitySeries = equityChart.addLineSeries({
@@ -272,7 +332,7 @@ export function SyncedBacktestCharts({ result }: SyncedBacktestChartsProps) {
     const drawdownChart = createChart(drawdownContainerRef.current, {
       ...commonOptions,
       width: drawdownContainerRef.current.clientWidth,
-      height: 150,
+      height: 140,
     });
 
     const drawdownSeries = drawdownChart.addAreaSeries({
@@ -383,7 +443,24 @@ export function SyncedBacktestCharts({ result }: SyncedBacktestChartsProps) {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center justify-between">
-            <span>가격 차트</span>
+            <div className="flex items-center gap-4">
+              <span>가격 차트</span>
+              {/* 이동평균선 범례 */}
+              <div className="flex items-center gap-3 text-xs font-normal text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <span className="w-4 h-0.5 bg-[#f59e0b]" />5
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-4 h-0.5 bg-[#ec4899]" />10
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-4 h-0.5 bg-[#22c55e]" />20
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-4 h-0.5 bg-[#3b82f6]" />60
+                </span>
+              </div>
+            </div>
             <div className="flex items-center gap-4 text-sm font-normal">
               <span className="flex items-center gap-1">
                 <span className="w-3 h-3 rounded-full bg-[#26a69a]" />
