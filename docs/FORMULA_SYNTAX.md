@@ -22,6 +22,20 @@ MyChart 매매 신호 시스템에서 사용하는 수식 편집기 문법입니
 |------|------|------|------|
 | 가격 | `Price` 또는 `Close` | 종가 | `Price > 10000` |
 | 거래량 | `Volume` | 거래량 | `Volume > 1000000` |
+| 거래량 이동평균 | `Volume_MA(기간)` 또는 `Vol_MA` | 거래량의 단순이동평균 | `Volume > Volume_MA(20)` |
+
+### 신고가/신저가
+
+| 지표 | 문법 | 설명 | 예시 |
+|------|------|------|------|
+| N일 최고가 | `High(기간)` | 최근 N일간 최고가 | `Price > High(20)` |
+| N일 최저가 | `Low(기간)` | 최근 N일간 최저가 | `Price < Low(20)` |
+| 52주 최고가 | `High_52W` | 52주(252일) 최고가 | `Price > High_52W` |
+| 52주 최저가 | `Low_52W` | 52주(252일) 최저가 | `Price < Low_52W` |
+
+- `High(N)`은 최근 N일간의 고가 중 최댓값
+- `Low(N)`은 최근 N일간의 저가 중 최솟값
+- `High_52W`, `Low_52W`는 `High(252)`, `Low(252)`와 동일
 
 ### 이동평균선
 
@@ -88,6 +102,8 @@ MyChart 매매 신호 시스템에서 사용하는 수식 편집기 문법입니
 Price > SMA(20)           # 가격이 20일선 위
 SMA(5) > SMA(20)          # 5일선이 20일선 위 (정배열)
 SMA(20) > SMA(60)         # 20일선이 60일선 위
+Price > High(20)          # 가격이 20일 최고가 돌파 (신고가)
+Price < Low(20)           # 가격이 20일 최저가 이탈 (신저가)
 ```
 
 ---
@@ -258,6 +274,31 @@ Stochastic_K(14,3) cross_below Stochastic_D(14,3)  # 스토캐스틱 데드크�
 
 # 과매도 구간에서 골든크로스
 Stochastic_K(14,3) < 20 AND Stochastic_K(14,3) cross_above Stochastic_D(14,3)
+```
+
+### 신고가/신저가 전략
+
+```
+# 신고가 돌파
+Price > High(20)                # 20일 신고가 돌파
+Price > High(60)                # 60일 신고가 돌파
+Price > High_52W                # 52주 신고가 돌파
+
+# 신저가 이탈
+Price < Low(20)                 # 20일 신저가 이탈
+Price < Low(60)                 # 60일 신저가 이탈
+Price < Low_52W                 # 52주 신저가 이탈
+
+# 신고가 복귀 (풀백)
+Price cross_above High(20)      # 20일 신고가 돌파 시점
+Price cross_below High(20)      # 20일 신고가 아래로 복귀
+
+# 신고가 + 거래량 확인
+Price > High(20) AND Volume > Volume_MA(20)   # 신고가 + 거래량 증가
+Price > High_52W AND Volume > 1000000         # 52주 신고가 + 대량 거래
+
+# 박스권 돌파 (채널 브레이크아웃)
+Price > High(20) AND SMA(20) > SMA(60)        # 상승추세 + 박스권 상단 돌파
 ```
 
 ### 복합 전략

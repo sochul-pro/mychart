@@ -189,11 +189,15 @@ function getConditionDescription(condition: Condition): string {
  * 지표 이름 포맷
  */
 function formatIndicator(indicator: SignalIndicator, params?: Record<string, number>): string {
+  const period = params?.period;
   const names: Record<SignalIndicator, string> = {
     price: '종가',
     volume: '거래량',
-    sma: `SMA(${params?.period || 20})`,
-    ema: `EMA(${params?.period || 20})`,
+    volume_ma: `거래량MA(${period || 20})`,
+    high_n: period === 252 ? '52주 최고가' : `${period || 20}일 최고가`,
+    low_n: period === 252 ? '52주 최저가' : `${period || 20}일 최저가`,
+    sma: `SMA(${period || 20})`,
+    ema: `EMA(${period || 20})`,
     rsi: `RSI(${params?.period || 14})`,
     macd: 'MACD',
     macd_signal: 'MACD Signal',

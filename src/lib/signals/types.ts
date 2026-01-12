@@ -5,6 +5,9 @@ export type ComparisonOperator = 'gt' | 'gte' | 'lt' | 'lte' | 'eq';
 export type SignalIndicator =
   | 'price'
   | 'volume'
+  | 'volume_ma'
+  | 'high_n'
+  | 'low_n'
   | 'sma'
   | 'ema'
   | 'rsi'
@@ -70,6 +73,9 @@ export interface IndicatorCache {
   macd: Map<string, { macd: (number | null)[]; signal: (number | null)[]; histogram: (number | null)[] }>;
   stochastic: Map<string, { k: (number | null)[]; d: (number | null)[] }>;
   bollinger: Map<string, { upper: (number | null)[]; middle: (number | null)[]; lower: (number | null)[] }>;
+  volume_ma: Map<number, (number | null)[]>; // key: period
+  high_n: Map<number, (number | null)[]>; // key: period (N일 최고가)
+  low_n: Map<number, (number | null)[]>; // key: period (N일 최저가)
 }
 
 /** 프리셋 전략 ID */

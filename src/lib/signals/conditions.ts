@@ -17,6 +17,9 @@ export function createIndicatorCache(): IndicatorCache {
     macd: new Map(),
     stochastic: new Map(),
     bollinger: new Map(),
+    volume_ma: new Map(),
+    high_n: new Map(),
+    low_n: new Map(),
   };
 }
 
@@ -38,6 +41,62 @@ export function getIndicatorValues(
 
     case 'volume':
       return data.map((d) => d.volume);
+
+    case 'volume_ma': {
+      const period = mergedParams.period || 20;
+      if (!cache.volume_ma.has(period)) {
+        // 거래량 데이터에 대한 SMA 계산
+        const volumes = data.map((d) => d.volume);
+        const volumeMa: (number | null)[] = new Array(data.length).fill(null);
+        for (let i = period - 1; i < data.length; i++) {
+          let sum = 0;
+          for (let j = 0; j < period; j++) {
+            sum += volumes[i - j];
+          }
+          volumeMa[i] = sum / period;
+        }
+        cache.volume_ma.set(period, volumeMa);
+      }
+      return cache.volume_ma.get(period)!;
+    }
+
+    case 'high_n': {
+      // N일 최고가: 최근 N일간의 최고가
+      const period = mergedParams.period || 20;
+      if (!cache.high_n.has(period)) {
+        const highN: (number | null)[] = new Array(data.length).fill(null);
+        for (let i = period - 1; i < data.length; i++) {
+          let maxHigh = data[i - period + 1].high;
+          for (let j = i - period + 2; j <= i; j++) {
+            if (data[j].high > maxHigh) {
+              maxHigh = data[j].high;
+            }
+          }
+          highN[i] = maxHigh;
+        }
+        cache.high_n.set(period, highN);
+      }
+      return cache.high_n.get(period)!;
+    }
+
+    case 'low_n': {
+      // N일 최저가: 최근 N일간의 최저가
+      const period = mergedParams.period || 20;
+      if (!cache.low_n.has(period)) {
+        const lowN: (number | null)[] = new Array(data.length).fill(null);
+        for (let i = period - 1; i < data.length; i++) {
+          let minLow = data[i - period + 1].low;
+          for (let j = i - period + 2; j <= i; j++) {
+            if (data[j].low < minLow) {
+              minLow = data[j].low;
+            }
+          }
+          lowN[i] = minLow;
+        }
+        cache.low_n.set(period, lowN);
+      }
+      return cache.low_n.get(period)!;
+    }
 
     case 'sma': {
       const period = mergedParams.period || 20;
@@ -124,6 +183,9 @@ function getDefaultParams(indicator: SignalIndicator): Record<string, number> {
   switch (indicator) {
     case 'sma':
     case 'ema':
+    case 'volume_ma':
+    case 'high_n':
+    case 'low_n':
       return { period: 20 };
     case 'rsi':
       return { period: 14 };

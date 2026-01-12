@@ -40,6 +40,12 @@ function indicatorToString(
       return 'Price';
     case 'volume':
       return 'Volume';
+    case 'volume_ma':
+      return `Volume_MA(${params?.period ?? 20})`;
+    case 'high_n':
+      return params?.period === 252 ? 'High_52W' : `High(${params?.period ?? 20})`;
+    case 'low_n':
+      return params?.period === 252 ? 'Low_52W' : `Low(${params?.period ?? 20})`;
     case 'sma':
       return `SMA(${params?.period ?? 20})`;
     case 'ema':
@@ -186,8 +192,8 @@ function tokenize(formula: string): Token[] {
         const lastToken = tokens[tokens.length - 1];
         const indicatorName = lastToken.value.toUpperCase();
 
-        if (['SMA', 'EMA', 'RSI', 'VOLUME_MA'].includes(indicatorName)) {
-          lastToken.params = { period: paramValues[0] || 14 };
+        if (['SMA', 'EMA', 'RSI', 'VOLUME_MA', 'HIGH', 'HIGH_N', 'LOW', 'LOW_N'].includes(indicatorName)) {
+          lastToken.params = { period: paramValues[0] || 20 };
         } else if (indicatorName === 'MACD') {
           lastToken.params = {
             fast: paramValues[0] || 12,
@@ -284,7 +290,15 @@ function tokenize(formula: string): Token[] {
     // 지표 이름 (알파벳, 숫자, 언더스코어)
     const identMatch = input.slice(i).match(/^[A-Za-z_][A-Za-z0-9_]*/);
     if (identMatch) {
-      tokens.push({ type: 'INDICATOR', value: identMatch[0] });
+      const indicatorName = identMatch[0].toUpperCase();
+      const token: Token = { type: 'INDICATOR', value: identMatch[0] };
+      // HIGH_52W, LOW_52W는 자동으로 period=252 설정
+      if (indicatorName === 'HIGH_52W') {
+        token.params = { period: 252 };
+      } else if (indicatorName === 'LOW_52W') {
+        token.params = { period: 252 };
+      }
+      tokens.push(token);
       i += identMatch[0].length;
       continue;
     }
@@ -323,7 +337,14 @@ function parseIndicatorName(name: string): SignalIndicator {
     'BB_MIDDLE': 'bollinger_middle',
     'BOLLINGER_LOWER': 'bollinger_lower',
     'BB_LOWER': 'bollinger_lower',
-    'VOLUME_MA': 'volume',
+    'VOLUME_MA': 'volume_ma',
+    'VOL_MA': 'volume_ma',
+    'HIGH': 'high_n',
+    'HIGH_N': 'high_n',
+    'HIGH_52W': 'high_n',
+    'LOW': 'low_n',
+    'LOW_N': 'low_n',
+    'LOW_52W': 'low_n',
   };
   return mapping[upper] || 'price';
 }
@@ -555,6 +576,11 @@ export function validateFormula(formula: string): { valid: boolean; error?: stri
 export const FORMULA_INDICATORS = [
   { name: 'Price', description: '현재가' },
   { name: 'Volume', description: '거래량' },
+  { name: 'Volume_MA(period)', description: '거래량 이동평균', example: 'Volume_MA(20)' },
+  { name: 'High(period)', description: 'N일 최고가', example: 'High(20)' },
+  { name: 'Low(period)', description: 'N일 최저가', example: 'Low(20)' },
+  { name: 'High_52W', description: '52주 신고가 (252일)' },
+  { name: 'Low_52W', description: '52주 신저가 (252일)' },
   { name: 'SMA(period)', description: '단순이동평균', example: 'SMA(20)' },
   { name: 'EMA(period)', description: '지수이동평균', example: 'EMA(20)' },
   { name: 'RSI(period)', description: '상대강도지수', example: 'RSI(14)' },
