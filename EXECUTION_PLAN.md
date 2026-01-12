@@ -905,6 +905,70 @@ npm run test:e2e:report # 테스트 리포트
 
 ---
 
+### TASK-035: 매매 전략 조건 빌더 기능 개선 ✅
+**설명**: 복잡한 조건 조합을 위한 그룹(괄호) 기능 및 수식 편집기 구현
+**범위**:
+
+**1. 상단 메뉴 매매신호 추가**
+- Header.tsx: `/signals` → `매매신호` 링크 추가
+- MobileNav.tsx: Activity 아이콘과 함께 매매신호 메뉴 추가
+
+**2. 조건 그룹 (괄호) 기능**
+- ConditionGroup 컴포넌트 구현
+  - 중첩 가능한 조건 그룹 (최대 3단계)
+  - AND/OR 논리 연산자 전환
+  - 깊이에 따른 색상 구분 (시각적 계층 표현)
+- ConditionBuilder에 [그룹] 버튼 추가
+- 복잡한 조건 표현 가능: `(A OR B) AND C`
+
+**3. 수식 편집기 기능**
+- 수식 파서/생성기 (formula.ts)
+  - `conditionToFormula()`: Condition 객체 → 수식 문자열
+  - `parseFormula()`: 수식 문자열 → Condition 객체
+  - `validateFormula()`: 유효성 검사
+- 지원 지표: Price, Volume, SMA, EMA, RSI, MACD, Stochastic, Bollinger
+- 지원 연산자: >, <, >=, <=, ==, cross_above, cross_below, AND, OR
+- 괄호를 통한 우선순위 지정
+
+**4. 수식 편집기 UI (FormulaEditor.tsx)**
+- 실시간 수식 입력 및 유효성 검사
+- 예제 수식 팝오버
+- 지표/연산자 도움말 (클릭하여 삽입)
+- 파싱 결과 미리보기
+- 유효성 상태 아이콘 표시
+
+**5. PresetForm 개선**
+- UI 빌더 / 수식 모드 전환 토글 버튼
+- 두 모드 간 자유롭게 전환 가능
+- 조건 데이터 양방향 동기화
+
+**6. 문서화**
+- docs/FORMULA_SYNTAX.md 생성
+- 지표, 연산자, 문법 규칙, 예제 상세 문서화
+
+**수식 예시**:
+```
+RSI(14) < 30 AND SMA(20) > SMA(60)
+(RSI(14) < 30 OR MACD cross_above MACD_Signal) AND Volume > 1000000
+SMA(5) cross_above SMA(20) AND MACD > 0
+```
+
+**산출물**:
+- `/src/components/signals/ConditionGroup.tsx` (신규)
+- `/src/components/signals/FormulaEditor.tsx` (신규)
+- `/src/lib/signals/formula.ts` (신규)
+- `/src/components/ui/popover.tsx` (신규)
+- `/src/components/layout/Header.tsx` (수정)
+- `/src/components/layout/MobileNav.tsx` (수정)
+- `/src/components/signals/ConditionBuilder.tsx` (수정)
+- `/src/components/signals/PresetForm.tsx` (수정)
+- `/docs/FORMULA_SYNTAX.md` (신규)
+
+**의존성**: TASK-034
+**완료**: 2026-01-12 (#49)
+
+---
+
 ## 태스크 의존성 다이어그램
 
 ```
@@ -975,6 +1039,7 @@ TASK-016 + TASK-014 + TASK-012 + TASK-015
 | 1.3 | 2026-01-10 | TASK-032 관심 테마 주도주 표시 개선 (#45 - 모멘텀 점수 기반 5종목, 사용자 선택 기능) |
 | 1.4 | 2026-01-11 | TASK-033 관심종목 그룹명 변경 기능 추가 (#46) |
 | 1.5 | 2026-01-11 | TASK-034 매매 신호 시스템 구현 (#47) - 백테스트 엔진, 프리셋 관리, 알림 시스템, /signals 페이지 |
+| 1.6 | 2026-01-12 | TASK-035 매매 전략 조건 빌더 기능 개선 (#49) - 그룹(괄호) 기능, 수식 편집기, 문법 문서화 |
 
 ---
 
@@ -989,12 +1054,12 @@ TASK-016 + TASK-014 + TASK-012 + TASK-015
 | Phase 4 | 3 | 3 | 0 | 0 |
 | Phase 5 | 3 | 3 | 0 | 0 |
 | Phase 6 | 4 | 4 | 0 | 0 |
-| Phase 7 | 9 | 9 | 0 | 0 |
+| Phase 7 | 10 | 10 | 0 | 0 |
 | Maintenance | 3 | 3 | 0 | 0 |
-| **합계** | **37** | **37** | **0** | **0** |
+| **합계** | **38** | **38** | **0** | **0** |
 
-### 완료 태스크 (✅): 37개
-- TASK-001~034 전체 완료
+### 완료 태스크 (✅): 38개
+- TASK-001~035 전체 완료
 - MAINT-001~003 보완 사항 완료
 
 ### 주요 완료 이력
@@ -1011,3 +1076,4 @@ TASK-016 + TASK-014 + TASK-012 + TASK-015
 | 2026-01-10 | TASK-032 관심 테마 주도주 표시 개선 | #45 |
 | 2026-01-11 | TASK-033 관심종목 그룹명 변경 기능 | #46 |
 | 2026-01-11 | TASK-034 매매 신호 시스템 구현 | #47 |
+| 2026-01-12 | TASK-035 매매 전략 조건 빌더 기능 개선 (그룹/수식 편집기) | #49 |
