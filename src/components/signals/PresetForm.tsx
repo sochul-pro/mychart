@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Blocks, Code2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -49,17 +49,24 @@ const defaultSellCondition: Condition = {
 };
 
 export function PresetForm({ open, onOpenChange, preset, onSubmit }: PresetFormProps) {
-  const [name, setName] = useState(preset?.name || '');
-  const [description, setDescription] = useState(preset?.description || '');
-  const [buyCondition, setBuyCondition] = useState<Condition>(
-    preset?.buyRules || defaultBuyCondition
-  );
-  const [sellCondition, setSellCondition] = useState<Condition>(
-    preset?.sellRules || defaultSellCondition
-  );
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [buyCondition, setBuyCondition] = useState<Condition>(defaultBuyCondition);
+  const [sellCondition, setSellCondition] = useState<Condition>(defaultSellCondition);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<'buy' | 'sell'>('buy');
   const [editMode, setEditMode] = useState<'builder' | 'formula'>('builder');
+
+  // preset이 변경되거나 다이얼로그가 열릴 때 폼 상태 동기화
+  useEffect(() => {
+    if (open) {
+      setName(preset?.name || '');
+      setDescription(preset?.description || '');
+      setBuyCondition(preset?.buyRules || defaultBuyCondition);
+      setSellCondition(preset?.sellRules || defaultSellCondition);
+      setActiveTab('buy');
+    }
+  }, [open, preset]);
 
   const handleSubmit = async () => {
     if (!name.trim()) return;
@@ -73,11 +80,6 @@ export function PresetForm({ open, onOpenChange, preset, onSubmit }: PresetFormP
         sellRules: sellCondition,
       });
       onOpenChange(false);
-      // 폼 초기화
-      setName('');
-      setDescription('');
-      setBuyCondition(defaultBuyCondition);
-      setSellCondition(defaultSellCondition);
     } finally {
       setIsSubmitting(false);
     }
