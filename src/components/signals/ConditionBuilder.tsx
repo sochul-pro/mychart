@@ -1,11 +1,12 @@
 'use client';
 
 import { useCallback } from 'react';
-import { Plus, GitBranch } from 'lucide-react';
+import { Plus, GitBranch, Brackets } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { ConditionRow } from './ConditionRow';
 import { CrossoverConditionRow } from './CrossoverConditionRow';
+import { ConditionGroup } from './ConditionGroup';
 import type {
   Condition,
   SingleCondition,
@@ -56,6 +57,16 @@ function createDefaultCrossoverCondition(): CrossoverCondition {
     direction: 'up',
     params1: { period: 5 },
     params2: { period: 20 },
+  };
+}
+
+/**
+ * 기본 그룹 조건 생성
+ */
+function createDefaultGroupCondition(): LogicalCondition {
+  return {
+    type: 'and',
+    conditions: [createDefaultSingleCondition()],
   };
 }
 
@@ -111,6 +122,21 @@ export function ConditionBuilder({
       onConditionChange({
         type: 'and',
         conditions: [condition, createDefaultCrossoverCondition()],
+      });
+    }
+  }, [isLogicalCondition, logicalCondition, condition, onConditionChange]);
+
+  // 그룹 조건 추가
+  const addGroupCondition = useCallback(() => {
+    if (isLogicalCondition) {
+      onConditionChange({
+        ...logicalCondition,
+        conditions: [...logicalCondition.conditions, createDefaultGroupCondition()],
+      });
+    } else {
+      onConditionChange({
+        type: 'and',
+        conditions: [condition, createDefaultGroupCondition()],
       });
     }
   }, [isLogicalCondition, logicalCondition, condition, onConditionChange]);
@@ -173,6 +199,17 @@ export function ConditionBuilder({
           onDelete={() => deleteCondition(index)}
         />
       );
+    } else if (cond.type === 'and' || cond.type === 'or') {
+      // 중첩된 그룹 렌더링
+      return (
+        <ConditionGroup
+          key={index}
+          condition={cond as LogicalCondition}
+          onChange={(updated) => updateCondition(index, updated)}
+          onDelete={() => deleteCondition(index)}
+          depth={0}
+        />
+      );
     }
     return null;
   };
@@ -201,6 +238,15 @@ export function ConditionBuilder({
             >
               <GitBranch className="mr-1 h-3 w-3" />
               크로스
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={addGroupCondition}
+            >
+              <Brackets className="mr-1 h-3 w-3" />
+              그룹
             </Button>
           </div>
         </div>
@@ -253,6 +299,15 @@ export function ConditionBuilder({
           >
             <GitBranch className="mr-1 h-3 w-3" />
             크로스
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs"
+            onClick={addGroupCondition}
+          >
+            <Brackets className="mr-1 h-3 w-3" />
+            그룹
           </Button>
         </div>
       </div>

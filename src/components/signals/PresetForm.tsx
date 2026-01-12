@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Blocks, Code2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -15,6 +16,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ConditionBuilder } from './ConditionBuilder';
+import { FormulaEditor } from './FormulaEditor';
+import { cn } from '@/lib/utils';
 import type { Condition, SignalPresetWithStats } from '@/lib/signals/types';
 
 interface PresetFormProps {
@@ -56,6 +59,7 @@ export function PresetForm({ open, onOpenChange, preset, onSubmit }: PresetFormP
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<'buy' | 'sell'>('buy');
+  const [editMode, setEditMode] = useState<'builder' | 'formula'>('builder');
 
   const handleSubmit = async () => {
     if (!name.trim()) return;
@@ -120,7 +124,39 @@ export function PresetForm({ open, onOpenChange, preset, onSubmit }: PresetFormP
 
           {/* 매수/매도 조건 */}
           <div className="space-y-2">
-            <Label>매매 조건</Label>
+            <div className="flex items-center justify-between">
+              <Label>매매 조건</Label>
+              {/* 편집 모드 전환 */}
+              <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setEditMode('builder')}
+                  className={cn(
+                    'flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors',
+                    editMode === 'builder'
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  <Blocks className="h-3 w-3" />
+                  UI 빌더
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditMode('formula')}
+                  className={cn(
+                    'flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors',
+                    editMode === 'formula'
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  <Code2 className="h-3 w-3" />
+                  수식
+                </button>
+              </div>
+            </div>
+
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'buy' | 'sell')}>
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="buy" className="text-green-600 data-[state=active]:text-green-600">
@@ -130,19 +166,39 @@ export function PresetForm({ open, onOpenChange, preset, onSubmit }: PresetFormP
                   매도 조건
                 </TabsTrigger>
               </TabsList>
+
               <TabsContent value="buy" className="border rounded-md p-4 mt-2">
-                <ConditionBuilder
-                  condition={buyCondition}
-                  onConditionChange={setBuyCondition}
-                  label="매수 조건"
-                />
+                {editMode === 'builder' ? (
+                  <ConditionBuilder
+                    condition={buyCondition}
+                    onConditionChange={setBuyCondition}
+                    label="매수 조건"
+                  />
+                ) : (
+                  <FormulaEditor
+                    label="매수 조건"
+                    condition={buyCondition}
+                    onConditionChange={setBuyCondition}
+                    placeholder="RSI(14) < 30 AND SMA(20) cross_above SMA(60)"
+                  />
+                )}
               </TabsContent>
+
               <TabsContent value="sell" className="border rounded-md p-4 mt-2">
-                <ConditionBuilder
-                  condition={sellCondition}
-                  onConditionChange={setSellCondition}
-                  label="매도 조건"
-                />
+                {editMode === 'builder' ? (
+                  <ConditionBuilder
+                    condition={sellCondition}
+                    onConditionChange={setSellCondition}
+                    label="매도 조건"
+                  />
+                ) : (
+                  <FormulaEditor
+                    label="매도 조건"
+                    condition={sellCondition}
+                    onConditionChange={setSellCondition}
+                    placeholder="RSI(14) > 70 OR SMA(20) cross_below SMA(60)"
+                  />
+                )}
               </TabsContent>
             </Tabs>
           </div>

@@ -10,6 +10,7 @@ const navItems = [
   { href: '/watchlist', label: '관심종목' },
   { href: '/screener', label: '스크리너' },
   { href: '/themes', label: '테마' },
+  { href: '/signals', label: '매매신호' },
 ];
 
 interface HeaderProps {
