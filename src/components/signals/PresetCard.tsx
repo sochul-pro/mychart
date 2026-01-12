@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { MoreHorizontal, Play, Edit2, Trash2, TrendingUp, TrendingDown, Activity } from 'lucide-react';
+import { MoreHorizontal, Play, Edit2, Trash2, TrendingUp, TrendingDown, Activity, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -19,7 +19,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import type { SignalPresetWithStats, TradingStrategy } from '@/lib/signals/types';
+import { conditionToFormula } from '@/lib/signals/formula';
+import type { SignalPresetWithStats, TradingStrategy, Condition } from '@/lib/signals/types';
 
 interface PresetCardProps {
   preset: SignalPresetWithStats;
@@ -38,6 +39,7 @@ export function PresetCard({
 }: PresetCardProps) {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
 
   const handleSelect = () => {
     const strategy: TradingStrategy = {
@@ -66,6 +68,14 @@ export function PresetCard({
     return `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`;
   };
 
+  const formatCondition = (condition: Condition): string => {
+    try {
+      return conditionToFormula(condition);
+    } catch {
+      return '(조건 표시 오류)';
+    }
+  };
+
   return (
     <>
       <Card className="hover:shadow-md transition-shadow">
@@ -92,7 +102,10 @@ export function PresetCard({
               )}
             </div>
             <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleSelect}>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsDetailOpen(true)} title="상세 보기">
+                <Eye className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleSelect} title="선택">
                 <Play className="h-4 w-4" />
               </Button>
               {!isDefault && (
@@ -176,6 +189,52 @@ export function PresetCard({
             </Button>
             <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
               {isDeleting ? '삭제 중...' : '삭제'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 전략 상세 보기 다이얼로그 */}
+      <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {preset.name}
+              {isDefault && (
+                <Badge variant="secondary" className="text-xs">
+                  기본
+                </Badge>
+              )}
+            </DialogTitle>
+            {preset.description && (
+              <DialogDescription>{preset.description}</DialogDescription>
+            )}
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <h4 className="text-sm font-medium text-green-600 mb-2">매수 조건</h4>
+              <div className="bg-muted rounded-md p-3">
+                <code className="text-sm whitespace-pre-wrap break-all">
+                  {formatCondition(preset.buyRules)}
+                </code>
+              </div>
+            </div>
+            <div>
+              <h4 className="text-sm font-medium text-red-600 mb-2">매도 조건</h4>
+              <div className="bg-muted rounded-md p-3">
+                <code className="text-sm whitespace-pre-wrap break-all">
+                  {formatCondition(preset.sellRules)}
+                </code>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDetailOpen(false)}>
+              닫기
+            </Button>
+            <Button onClick={() => { setIsDetailOpen(false); handleSelect(); }}>
+              <Play className="h-4 w-4 mr-1" />
+              선택
             </Button>
           </DialogFooter>
         </DialogContent>
