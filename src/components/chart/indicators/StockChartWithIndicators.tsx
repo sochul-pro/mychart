@@ -740,8 +740,8 @@ export function StockChartWithIndicators({
       }
     }
 
-    // 차트 맞춤 및 동기화
-    mainChartRef.current?.timeScale().fitContent();
+    // 차트를 최신 데이터(오른쪽 끝)로 스크롤
+    mainChartRef.current?.timeScale().scrollToRealTime();
 
     // 서브 차트들은 메인 차트의 범위를 따르도록 동기화
     requestAnimationFrame(() => {

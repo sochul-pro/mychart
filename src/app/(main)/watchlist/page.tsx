@@ -230,7 +230,7 @@ export default function WatchlistPage() {
             ohlcv={ohlcv}
             timeFrame={timeFrame}
             onTimeFrameChange={setTimeFrame}
-            height={500}
+            height={650}
           />
         </>
       )}
