@@ -242,6 +242,12 @@ export function StockChartWithIndicators({
         scaleMargins: { top: 0.1, bottom: showVolume ? 0.25 : 0.1 },
       },
       timeScale: { borderColor: '#e0e0e0', timeVisible: true, fixRightEdge: true },
+      localization: {
+        timeFormatter: (time: number) => {
+          const date = new Date(time * 1000);
+          return date.toISOString().slice(0, 10);
+        },
+      },
     });
 
     // 캔들스틱 시리즈

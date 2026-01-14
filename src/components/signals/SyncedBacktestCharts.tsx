@@ -260,6 +260,12 @@ export function SyncedBacktestCharts({ result }: SyncedBacktestChartsProps) {
         horzLine: { visible: true, labelVisible: true },
         vertLine: { visible: true, labelVisible: true },
       },
+      localization: {
+        timeFormatter: (time: number) => {
+          const date = new Date(time * 1000);
+          return date.toISOString().slice(0, 10);
+        },
+      },
     };
 
     // 1. 가격 차트 생성

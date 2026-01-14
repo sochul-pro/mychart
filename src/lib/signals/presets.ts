@@ -192,6 +192,202 @@ export const PRESET_STRATEGIES: Record<PresetStrategyId, TradingStrategy> = {
       ],
     },
   },
+
+  // 전략 4: 이동평균선 눌림목
+  // 정배열 상승 추세에서 5일선까지 조정 후 반등
+  ma_pullback: {
+    id: 'ma_pullback',
+    name: '이동평균선 눌림목',
+    description: '정배열 상승 추세에서 5일선 눌림 후 반등 시 매수',
+    buyCondition: {
+      type: 'and',
+      conditions: [
+        // SMA(20) > SMA(60) - 중장기 상승추세
+        {
+          type: 'single',
+          indicator: 'sma',
+          operator: 'gt',
+          value: 'sma',
+          params: { period: 20 },
+          valueParams: { period: 60 },
+        },
+        // Price > SMA(20) - 20일선 위에서 거래
+        {
+          type: 'single',
+          indicator: 'price',
+          operator: 'gt',
+          value: 'sma',
+          valueParams: { period: 20 },
+        },
+        // Price cross_above SMA(5) - 5일선 눌림 후 상향돌파
+        {
+          type: 'crossover',
+          indicator1: 'price',
+          indicator2: 'sma',
+          direction: 'up',
+          params2: { period: 5 },
+        },
+      ],
+    },
+    sellCondition: {
+      type: 'or',
+      conditions: [
+        // Price cross_below SMA(20) - 20일선 하향돌파
+        {
+          type: 'crossover',
+          indicator1: 'price',
+          indicator2: 'sma',
+          direction: 'down',
+          params2: { period: 20 },
+        },
+        // RSI > 75 - 과매수
+        {
+          type: 'single',
+          indicator: 'rsi',
+          operator: 'gt',
+          value: 75,
+          params: { period: 14 },
+        },
+      ],
+    },
+  },
+
+  // 전략 5: 볼린저밴드 눌림목
+  // 상승 추세에서 볼린저 중심선 근처까지 조정 후 반등
+  bollinger_pullback: {
+    id: 'bollinger_pullback',
+    name: '볼린저밴드 눌림목',
+    description: '상승 추세에서 볼린저밴드 중심선 근처 눌림 후 반등 시 매수',
+    buyCondition: {
+      type: 'and',
+      conditions: [
+        // SMA(20) > SMA(60) - 상승추세 확인
+        {
+          type: 'single',
+          indicator: 'sma',
+          operator: 'gt',
+          value: 'sma',
+          params: { period: 20 },
+          valueParams: { period: 60 },
+        },
+        // Price > BB_Lower - 하단밴드 아래로 추락하지 않음
+        {
+          type: 'single',
+          indicator: 'price',
+          operator: 'gt',
+          value: 'bollinger_lower',
+          valueParams: { period: 20, stdDev: 2 },
+        },
+        // Price <= BB_Middle - 중심선 근처까지 눌림
+        {
+          type: 'single',
+          indicator: 'price',
+          operator: 'lte',
+          value: 'bollinger_middle',
+          valueParams: { period: 20 },
+        },
+        // RSI > 40 - 과매도 아님
+        {
+          type: 'single',
+          indicator: 'rsi',
+          operator: 'gt',
+          value: 40,
+          params: { period: 14 },
+        },
+        // RSI < 60 - 과매수 아님 (중립 구간)
+        {
+          type: 'single',
+          indicator: 'rsi',
+          operator: 'lt',
+          value: 60,
+          params: { period: 14 },
+        },
+      ],
+    },
+    sellCondition: {
+      type: 'or',
+      conditions: [
+        // Price >= BB_Upper - 상단밴드 도달
+        {
+          type: 'single',
+          indicator: 'price',
+          operator: 'gte',
+          value: 'bollinger_upper',
+          valueParams: { period: 20, stdDev: 2 },
+        },
+        // Price cross_below SMA(60) - 60일선 하향돌파
+        {
+          type: 'crossover',
+          indicator1: 'price',
+          indicator2: 'sma',
+          direction: 'down',
+          params2: { period: 60 },
+        },
+      ],
+    },
+  },
+
+  // 전략 6: MACD 눌림목
+  // MACD 양수 영역에서 히스토그램 축소 후 다시 확대
+  macd_pullback: {
+    id: 'macd_pullback',
+    name: 'MACD 눌림목',
+    description: 'MACD 양수 영역에서 모멘텀 회복 + 거래량 동반 시 매수',
+    buyCondition: {
+      type: 'and',
+      conditions: [
+        // MACD > 0 - 상승 모멘텀 유지
+        {
+          type: 'single',
+          indicator: 'macd',
+          operator: 'gt',
+          value: 0,
+        },
+        // MACD > MACD_Signal - 히스토그램 양수 (모멘텀 회복)
+        {
+          type: 'single',
+          indicator: 'macd',
+          operator: 'gt',
+          value: 'macd_signal',
+        },
+        // Price > SMA(20) - 단기 추세 상승
+        {
+          type: 'single',
+          indicator: 'price',
+          operator: 'gt',
+          value: 'sma',
+          valueParams: { period: 20 },
+        },
+        // Volume > Volume_MA(20) - 거래량 동반
+        {
+          type: 'single',
+          indicator: 'volume',
+          operator: 'gt',
+          value: 'volume_ma',
+          valueParams: { period: 20 },
+        },
+      ],
+    },
+    sellCondition: {
+      type: 'or',
+      conditions: [
+        // MACD cross_below MACD_Signal - MACD 데드크로스
+        {
+          type: 'crossover',
+          indicator1: 'macd',
+          indicator2: 'macd_signal',
+          direction: 'down',
+        },
+        // MACD < 0 - 하락 모멘텀 전환
+        {
+          type: 'single',
+          indicator: 'macd',
+          operator: 'lt',
+          value: 0,
+        },
+      ],
+    },
+  },
 };
 
 /**

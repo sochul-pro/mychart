@@ -47,13 +47,20 @@ export function generateOHLCV(
   const random = seededRandom(seed);
 
   const data: OHLCV[] = [];
-  const now = Date.now();
+
+  // 오늘 자정(00:00:00)을 기준으로 고정 (호출 시점에 관계없이 일관된 시간)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const baseTime = today.getTime();
+
   const interval = TIME_FRAME_MS[timeFrame];
 
   let price = basePrice;
 
   for (let i = limit - 1; i >= 0; i--) {
-    const time = Math.floor((now - i * interval) / 1000);
+    // 마지막 데이터가 오늘, 첫 번째 데이터가 (limit-1)일 전
+    // limit이 달라도 같은 날짜는 같은 시간값을 가짐
+    const time = baseTime - i * interval;
 
     // 랜덤 변동률 (-3% ~ +3%)
     const changePercent = (random() - 0.5) * 0.06;

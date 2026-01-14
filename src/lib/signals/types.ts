@@ -83,7 +83,10 @@ export interface IndicatorCache {
 export type PresetStrategyId =
   | 'triple_screen'
   | 'trend_momentum'
-  | 'bollinger_trend';
+  | 'bollinger_trend'
+  | 'ma_pullback'
+  | 'bollinger_pullback'
+  | 'macd_pullback';
 
 /** 신호 생성 결과 */
 export interface SignalResult {

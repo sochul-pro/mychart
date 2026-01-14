@@ -46,6 +46,12 @@ export function DrawdownChart({ result }: DrawdownChartProps) {
           labelVisible: true,
         },
       },
+      localization: {
+        timeFormatter: (time: number) => {
+          const date = new Date(time * 1000);
+          return date.toISOString().slice(0, 10);
+        },
+      },
     });
 
     const areaSeries = chart.addAreaSeries({

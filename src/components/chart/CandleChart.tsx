@@ -108,6 +108,12 @@ export const CandleChart = memo(function CandleChart({
       handleScroll: {
         vertTouchDrag: false,
       },
+      localization: {
+        timeFormatter: (time: number) => {
+          const date = new Date(time * 1000);
+          return date.toISOString().slice(0, 10);
+        },
+      },
     });
 
     // 캔들스틱 시리즈

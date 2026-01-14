@@ -46,6 +46,12 @@ export function EquityCurveChart({ result }: EquityCurveChartProps) {
           labelVisible: true,
         },
       },
+      localization: {
+        timeFormatter: (time: number) => {
+          const date = new Date(time * 1000);
+          return date.toISOString().slice(0, 10);
+        },
+      },
     });
 
     const lineSeries = chart.addLineSeries({

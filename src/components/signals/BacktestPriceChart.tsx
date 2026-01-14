@@ -151,6 +151,12 @@ export function BacktestPriceChart({ result }: BacktestPriceChartProps) {
         horzLine: { visible: true, labelVisible: true },
         vertLine: { visible: true, labelVisible: true },
       },
+      localization: {
+        timeFormatter: (time: number) => {
+          const date = new Date(time * 1000);
+          return date.toISOString().slice(0, 10);
+        },
+      },
     });
 
     // 캔들스틱 시리즈
