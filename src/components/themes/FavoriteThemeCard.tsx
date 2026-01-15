@@ -10,6 +10,7 @@ import { Progress } from '@/components/ui/progress';
 import { SparklineChart } from './SparklineChart';
 import { cn } from '@/lib/utils';
 import { useTheme, useThemeStocks } from '@/hooks/useThemes';
+import { useSparklines } from '@/hooks/useSparklines';
 import type { Theme, FavoriteTheme, SparklineData, ThemeStock, LeadingStock } from '@/types';
 
 // 표시할 종목 수
@@ -85,6 +86,15 @@ export const FavoriteThemeCard = memo(function FavoriteThemeCard({
     return displayTheme?.leadingStocks.slice(0, DISPLAY_STOCK_COUNT) || [];
   }, [hasCustomStocks, favorite.customStocks, displayTheme, allThemeStocks]);
 
+  // 표시할 종목들의 symbol 목록
+  const displaySymbols = useMemo(
+    () => displayStocks.map((s) => s.symbol),
+    [displayStocks]
+  );
+
+  // 실제 20일 시세 데이터 가져오기
+  const { sparklineMap: realSparklineMap, ohlcvMap: realOhlcvMap } = useSparklines(displaySymbols, 20);
+
   // 테마 정보가 없을 때 로딩 상태
   if (!displayTheme) {
     return (
@@ -127,8 +137,8 @@ export const FavoriteThemeCard = memo(function FavoriteThemeCard({
       ? (displayTheme.advanceCount / displayTheme.stockCount) * 100
       : 0;
 
-  // 스파크라인 데이터를 주도주별로 매핑
-  const sparklineMap = new Map(
+  // props로 전달받은 스파크라인 데이터 (fallback용)
+  const propsSparklineMap = new Map(
     sparklineData.map((s) => [s.symbol, s])
   );
 
@@ -223,8 +233,11 @@ export const FavoriteThemeCard = memo(function FavoriteThemeCard({
           )}
 
           {displayStocks.map((stock) => {
-            const sparkline = sparklineMap.get(stock.symbol);
-            const prices = sparkline?.prices || generateMockSparkline(stock.changePercent);
+            // 실제 20일 시세 데이터 우선 사용, 없으면 props 데이터, 최후에 빈 배열
+            const realPrices = realSparklineMap.get(stock.symbol);
+            const propsPrices = propsSparklineMap.get(stock.symbol)?.prices;
+            const prices = realPrices || propsPrices || [];
+            const ohlcv = realOhlcvMap.get(stock.symbol) || [];
 
             return (
               <Link
@@ -249,8 +262,8 @@ export const FavoriteThemeCard = memo(function FavoriteThemeCard({
                   </div>
                 </div>
 
-                {/* 스파크라인 */}
-                <SparklineChart data={prices} width={50} height={20} />
+                {/* 캔들 + 스파크라인 */}
+                <SparklineChart data={prices} ohlcv={ohlcv} width={75} height={24} />
               </Link>
             );
           })}
@@ -272,20 +285,3 @@ export const FavoriteThemeCard = memo(function FavoriteThemeCard({
     </Card>
   );
 });
-
-/**
- * 임시 스파크라인 데이터 생성 (20일)
- */
-function generateMockSparkline(changePercent: number): number[] {
-  const prices: number[] = [];
-  let basePrice = 100;
-
-  for (let i = 0; i < 20; i++) {
-    // 랜덤 변동 + 전체 추세 반영
-    const dailyChange = (Math.random() - 0.5) * 3 + changePercent / 20;
-    basePrice = basePrice * (1 + dailyChange / 100);
-    prices.push(basePrice);
-  }
-
-  return prices;
-}
