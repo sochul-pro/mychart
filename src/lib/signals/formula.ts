@@ -24,6 +24,8 @@ import type {
   LogicalCondition,
   SignalIndicator,
   ComparisonOperator,
+  ArithmeticOperator,
+  ArithmeticExpression,
 } from './types';
 
 // ========== 수식 생성기 (Condition → 문자열) ==========
@@ -74,6 +76,59 @@ function indicatorToString(
 }
 
 /**
+ * 산술 연산자를 문자열로 변환
+ */
+function arithmeticOperatorToString(op: ArithmeticOperator): string {
+  switch (op) {
+    case 'add':
+      return '+';
+    case 'sub':
+      return '-';
+    case 'mul':
+      return '*';
+    case 'div':
+      return '/';
+    default:
+      return op;
+  }
+}
+
+/**
+ * 산술 표현식을 수식 문자열로 변환
+ */
+function arithmeticExpressionToString(expr: ArithmeticExpression): string {
+  let leftStr: string;
+  if (typeof expr.left === 'number') {
+    leftStr = expr.left.toString();
+  } else {
+    leftStr = indicatorToString(expr.left, expr.leftParams);
+  }
+
+  let rightStr: string;
+  if (typeof expr.right === 'number') {
+    rightStr = expr.right.toString();
+  } else {
+    rightStr = indicatorToString(expr.right, expr.rightParams);
+  }
+
+  const op = arithmeticOperatorToString(expr.operator);
+  return `${leftStr} ${op} ${rightStr}`;
+}
+
+/**
+ * 지표 또는 산술 표현식을 문자열로 변환
+ */
+function indicatorOrExprToString(
+  value: SignalIndicator | ArithmeticExpression,
+  params?: Record<string, number>
+): string {
+  if (typeof value === 'object' && value.type === 'arithmetic') {
+    return arithmeticExpressionToString(value);
+  }
+  return indicatorToString(value as SignalIndicator, params);
+}
+
+/**
  * 비교 연산자를 문자열로 변환
  */
 function operatorToString(op: ComparisonOperator): string {
@@ -97,12 +152,16 @@ function operatorToString(op: ComparisonOperator): string {
  * 단일 조건을 수식 문자열로 변환
  */
 function singleConditionToFormula(condition: SingleCondition): string {
-  const indicator = indicatorToString(condition.indicator, condition.params);
+  // indicator가 산술 표현식인 경우
+  const indicator = indicatorOrExprToString(condition.indicator, condition.params);
   const op = operatorToString(condition.operator);
 
   let value: string;
   if (typeof condition.value === 'number') {
     value = condition.value.toString();
+  } else if (typeof condition.value === 'object' && condition.value.type === 'arithmetic') {
+    // value가 산술 표현식인 경우
+    value = arithmeticExpressionToString(condition.value);
   } else {
     // 다른 지표와 비교 - valueParams가 있으면 사용
     const valueIndicatorParams = condition.valueParams ?? condition.params;
@@ -153,7 +212,7 @@ export function conditionToFormula(condition: Condition, wrapInParens = false): 
 // ========== 수식 파서 (문자열 → Condition) ==========
 
 interface Token {
-  type: 'INDICATOR' | 'NUMBER' | 'OPERATOR' | 'COMPARISON' | 'CROSS' | 'LPAREN' | 'RPAREN' | 'AND' | 'OR';
+  type: 'INDICATOR' | 'NUMBER' | 'OPERATOR' | 'COMPARISON' | 'CROSS' | 'ARITHMETIC' | 'LPAREN' | 'RPAREN' | 'AND' | 'OR';
   value: string;
   params?: Record<string, number>;
 }
@@ -221,6 +280,13 @@ function tokenize(formula: string): Token[] {
 
     if (input[i] === ')') {
       tokens.push({ type: 'RPAREN', value: ')' });
+      i++;
+      continue;
+    }
+
+    // 산술 연산자 (*, /)
+    if (input[i] === '*' || input[i] === '/') {
+      tokens.push({ type: 'ARITHMETIC', value: input[i] });
       i++;
       continue;
     }
@@ -370,6 +436,24 @@ function parseComparisonOperator(op: string): ComparisonOperator {
   }
 }
 
+/**
+ * 산술 연산자 문자열을 ArithmeticOperator로 변환
+ */
+function parseArithmeticOperator(op: string): ArithmeticOperator {
+  switch (op) {
+    case '+':
+      return 'add';
+    case '-':
+      return 'sub';
+    case '*':
+      return 'mul';
+    case '/':
+      return 'div';
+    default:
+      return 'mul';
+  }
+}
+
 // 파서 클래스
 class FormulaParser {
   private tokens: Token[];
@@ -474,6 +558,73 @@ class FormulaParser {
   }
 
   /**
+   * 산술 표현식 또는 단일 값 파싱 (예: Low_52W * 1.3 또는 그냥 30)
+   * 반환: { value, params } 또는 { arithmeticExpr }
+   */
+  private parseArithmeticOrValue(): {
+    value?: number | SignalIndicator;
+    params?: Record<string, number>;
+    arithmeticExpr?: ArithmeticExpression;
+  } {
+    const firstToken = this.consume();
+    if (!firstToken) {
+      throw new Error('Expected value or indicator');
+    }
+
+    let left: number | SignalIndicator;
+    let leftParams: Record<string, number> | undefined;
+
+    if (firstToken.type === 'NUMBER') {
+      left = parseFloat(firstToken.value);
+    } else if (firstToken.type === 'INDICATOR') {
+      left = parseIndicatorName(firstToken.value);
+      leftParams = firstToken.params;
+    } else {
+      throw new Error(`Unexpected token: ${firstToken.value}`);
+    }
+
+    // 산술 연산자가 뒤따르는지 확인
+    if (this.peek()?.type === 'ARITHMETIC') {
+      const opToken = this.consume()!;
+      const arithmeticOp = parseArithmeticOperator(opToken.value);
+
+      const rightToken = this.consume();
+      if (!rightToken) {
+        throw new Error('Expected value after arithmetic operator');
+      }
+
+      let right: number | SignalIndicator;
+      let rightParams: Record<string, number> | undefined;
+
+      if (rightToken.type === 'NUMBER') {
+        right = parseFloat(rightToken.value);
+      } else if (rightToken.type === 'INDICATOR') {
+        right = parseIndicatorName(rightToken.value);
+        rightParams = rightToken.params;
+      } else {
+        throw new Error(`Unexpected token: ${rightToken.value}`);
+      }
+
+      return {
+        arithmeticExpr: {
+          type: 'arithmetic',
+          left,
+          operator: arithmeticOp,
+          right,
+          leftParams,
+          rightParams,
+        },
+      };
+    }
+
+    // 산술 연산자가 없으면 단일 값 반환
+    return {
+      value: left,
+      params: leftParams,
+    };
+  }
+
+  /**
    * 단일 조건 또는 크로스오버 파싱
    */
   private parseCondition(): Condition {
@@ -482,6 +633,67 @@ class FormulaParser {
     const params1 = indicator1Token.params;
 
     const nextToken = this.peek();
+
+    // 산술 연산자가 바로 뒤에 있으면 (예: Low_52W * 1.3 > ...)
+    // indicator1을 산술 표현식의 left로 처리
+    if (nextToken?.type === 'ARITHMETIC') {
+      const opToken = this.consume()!;
+      const arithmeticOp = parseArithmeticOperator(opToken.value);
+
+      const rightToken = this.consume();
+      if (!rightToken) {
+        throw new Error('Expected value after arithmetic operator');
+      }
+
+      let right: number | SignalIndicator;
+      let rightParams: Record<string, number> | undefined;
+
+      if (rightToken.type === 'NUMBER') {
+        right = parseFloat(rightToken.value);
+      } else if (rightToken.type === 'INDICATOR') {
+        right = parseIndicatorName(rightToken.value);
+        rightParams = rightToken.params;
+      } else {
+        throw new Error(`Unexpected token: ${rightToken.value}`);
+      }
+
+      const leftArithmetic: ArithmeticExpression = {
+        type: 'arithmetic',
+        left: indicator1,
+        operator: arithmeticOp,
+        right,
+        leftParams: params1,
+        rightParams,
+      };
+
+      // 이제 비교 연산자가 와야 함
+      const compToken = this.peek();
+      if (compToken?.type !== 'COMPARISON') {
+        throw new Error(`Expected comparison operator, got ${compToken?.value || 'EOF'}`);
+      }
+      this.consume();
+      const operator = parseComparisonOperator(compToken.value);
+
+      // 비교 대상 값 파싱
+      const rightSide = this.parseArithmeticOrValue();
+
+      if (rightSide.arithmeticExpr) {
+        return {
+          type: 'single',
+          indicator: leftArithmetic,
+          operator,
+          value: rightSide.arithmeticExpr,
+        } as SingleCondition;
+      }
+
+      return {
+        type: 'single',
+        indicator: leftArithmetic,
+        operator,
+        value: rightSide.value!,
+        valueParams: rightSide.params,
+      } as SingleCondition;
+    }
 
     // 크로스오버
     if (nextToken?.type === 'CROSS') {
@@ -508,33 +720,26 @@ class FormulaParser {
       this.consume(); // 비교 연산자
       const operator = parseComparisonOperator(nextToken.value);
 
-      const valueToken = this.consume();
-      if (!valueToken) {
-        throw new Error('Expected value after comparison operator');
-      }
+      // 비교 대상 값 파싱 (산술 표현식 또는 단일 값)
+      const rightSide = this.parseArithmeticOrValue();
 
-      let value: number | SignalIndicator;
-      let valueParams: Record<string, number> | undefined;
-
-      if (valueToken.type === 'NUMBER') {
-        value = parseFloat(valueToken.value);
-      } else if (valueToken.type === 'INDICATOR') {
-        value = parseIndicatorName(valueToken.value);
-        // 비교 대상 지표의 파라미터를 별도로 저장
-        if (valueToken.params) {
-          valueParams = valueToken.params;
-        }
-      } else {
-        throw new Error(`Unexpected token: ${valueToken.value}`);
+      if (rightSide.arithmeticExpr) {
+        return {
+          type: 'single',
+          indicator: indicator1,
+          operator,
+          value: rightSide.arithmeticExpr,
+          params: params1,
+        } as SingleCondition;
       }
 
       return {
         type: 'single',
         indicator: indicator1,
         operator,
-        value,
+        value: rightSide.value!,
         params: params1,
-        valueParams,
+        valueParams: rightSide.params,
       } as SingleCondition;
     }
 

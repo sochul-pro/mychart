@@ -2,6 +2,7 @@ import type { OHLCV } from '@/types';
 import type {
   SignalIndicator,
   ComparisonOperator,
+  ArithmeticOperator,
   IndicatorCache,
 } from './types';
 import { sma, ema, rsi, macd, stochastic, bollingerBands } from '@/lib/indicators';
@@ -228,6 +229,30 @@ export function compare(
       return value1 === value2;
     default:
       return false;
+  }
+}
+
+/**
+ * 산술 연산 수행
+ */
+export function calculateArithmetic(
+  value1: number | null,
+  operator: ArithmeticOperator,
+  value2: number | null
+): number | null {
+  if (value1 === null || value2 === null) return null;
+
+  switch (operator) {
+    case 'add':
+      return value1 + value2;
+    case 'sub':
+      return value1 - value2;
+    case 'mul':
+      return value1 * value2;
+    case 'div':
+      return value2 === 0 ? null : value1 / value2;
+    default:
+      return null;
   }
 }
 

@@ -9,11 +9,13 @@ import type {
   TradingStrategy,
   IndicatorCache,
   SignalIndicator,
+  ArithmeticExpression,
 } from './types';
 import {
   createIndicatorCache,
   getIndicatorValues,
   compare,
+  calculateArithmetic,
   detectCrossover,
 } from './conditions';
 
@@ -46,6 +48,53 @@ export function evaluateCondition(
 }
 
 /**
+ * 산술 표현식 평가
+ */
+function evaluateArithmeticExpression(
+  expr: ArithmeticExpression,
+  data: OHLCV[],
+  index: number,
+  cache: IndicatorCache
+): number | null {
+  // 좌항 값 구하기
+  let leftVal: number | null;
+  if (typeof expr.left === 'number') {
+    leftVal = expr.left;
+  } else {
+    const leftValues = getIndicatorValues(data, expr.left, expr.leftParams, cache);
+    leftVal = leftValues[index];
+  }
+
+  // 우항 값 구하기
+  let rightVal: number | null;
+  if (typeof expr.right === 'number') {
+    rightVal = expr.right;
+  } else {
+    const rightValues = getIndicatorValues(data, expr.right, expr.rightParams, cache);
+    rightVal = rightValues[index];
+  }
+
+  return calculateArithmetic(leftVal, expr.operator, rightVal);
+}
+
+/**
+ * 지표 또는 산술 표현식의 값 구하기
+ */
+function getIndicatorOrExpressionValue(
+  indicatorOrExpr: SignalIndicator | ArithmeticExpression,
+  params: Record<string, number> | undefined,
+  data: OHLCV[],
+  index: number,
+  cache: IndicatorCache
+): number | null {
+  if (typeof indicatorOrExpr === 'object' && indicatorOrExpr.type === 'arithmetic') {
+    return evaluateArithmeticExpression(indicatorOrExpr, data, index, cache);
+  }
+  const values = getIndicatorValues(data, indicatorOrExpr as SignalIndicator, params, cache);
+  return values[index];
+}
+
+/**
  * 단일 조건 평가
  */
 function evaluateSingleCondition(
@@ -54,16 +103,25 @@ function evaluateSingleCondition(
   index: number,
   cache: IndicatorCache
 ): boolean {
-  const values = getIndicatorValues(data, condition.indicator, condition.params, cache);
-  const value1 = values[index];
+  // indicator가 산술 표현식일 수 있음
+  const value1 = getIndicatorOrExpressionValue(
+    condition.indicator,
+    condition.params,
+    data,
+    index,
+    cache
+  );
 
+  // value가 숫자, 지표, 또는 산술 표현식일 수 있음
   let value2: number | null;
   if (typeof condition.value === 'number') {
     value2 = condition.value;
+  } else if (typeof condition.value === 'object' && condition.value.type === 'arithmetic') {
+    value2 = evaluateArithmeticExpression(condition.value, data, index, cache);
   } else {
     // 다른 지표와 비교 - valueParams가 있으면 사용, 없으면 params 사용
     const compareParams = condition.valueParams ?? condition.params;
-    const compareValues = getIndicatorValues(data, condition.value, compareParams, cache);
+    const compareValues = getIndicatorValues(data, condition.value as SignalIndicator, compareParams, cache);
     value2 = compareValues[index];
   }
 
@@ -176,12 +234,16 @@ export function generateSignals(
 function getConditionDescription(condition: Condition): string {
   switch (condition.type) {
     case 'single': {
-      const indicator = formatIndicator(condition.indicator, condition.params);
+      const indicator = formatIndicatorOrExpression(condition.indicator, condition.params);
       const operator = formatOperator(condition.operator);
-      const value =
-        typeof condition.value === 'number'
-          ? condition.value.toString()
-          : formatIndicator(condition.value, condition.params);
+      let value: string;
+      if (typeof condition.value === 'number') {
+        value = condition.value.toString();
+      } else if (typeof condition.value === 'object' && condition.value.type === 'arithmetic') {
+        value = formatArithmeticExpression(condition.value);
+      } else {
+        value = formatIndicator(condition.value as SignalIndicator, condition.valueParams ?? condition.params);
+      }
       return `${indicator} ${operator} ${value}`;
     }
     case 'crossover': {
@@ -197,6 +259,46 @@ function getConditionDescription(condition: Condition): string {
     default:
       return '';
   }
+}
+
+/**
+ * 산술 연산자 포맷
+ */
+function formatArithmeticOperator(op: string): string {
+  const ops: Record<string, string> = {
+    add: '+',
+    sub: '-',
+    mul: '×',
+    div: '÷',
+  };
+  return ops[op] || op;
+}
+
+/**
+ * 산술 표현식 포맷
+ */
+function formatArithmeticExpression(expr: ArithmeticExpression): string {
+  const left = typeof expr.left === 'number'
+    ? expr.left.toString()
+    : formatIndicator(expr.left, expr.leftParams);
+  const right = typeof expr.right === 'number'
+    ? expr.right.toString()
+    : formatIndicator(expr.right, expr.rightParams);
+  const op = formatArithmeticOperator(expr.operator);
+  return `${left} ${op} ${right}`;
+}
+
+/**
+ * 지표 또는 산술 표현식 포맷
+ */
+function formatIndicatorOrExpression(
+  indicatorOrExpr: SignalIndicator | ArithmeticExpression,
+  params?: Record<string, number>
+): string {
+  if (typeof indicatorOrExpr === 'object' && indicatorOrExpr.type === 'arithmetic') {
+    return formatArithmeticExpression(indicatorOrExpr);
+  }
+  return formatIndicator(indicatorOrExpr as SignalIndicator, params);
 }
 
 /**

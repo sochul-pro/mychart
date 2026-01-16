@@ -1,6 +1,19 @@
 /** 비교 연산자 */
 export type ComparisonOperator = 'gt' | 'gte' | 'lt' | 'lte' | 'eq';
 
+/** 산술 연산자 */
+export type ArithmeticOperator = 'add' | 'sub' | 'mul' | 'div';
+
+/** 산술 표현식 (예: Low_52W * 1.3) */
+export interface ArithmeticExpression {
+  type: 'arithmetic';
+  left: SignalIndicator | number;
+  operator: ArithmeticOperator;
+  right: SignalIndicator | number;
+  leftParams?: Record<string, number>;
+  rightParams?: Record<string, number>;
+}
+
 /** 지표 타입 */
 export type SignalIndicator =
   | 'price'
@@ -23,9 +36,9 @@ export type SignalIndicator =
 /** 단일 조건 */
 export interface SingleCondition {
   type: 'single';
-  indicator: SignalIndicator;
+  indicator: SignalIndicator | ArithmeticExpression; // 지표 또는 산술 표현식
   operator: ComparisonOperator;
-  value: number | SignalIndicator; // 고정값 또는 다른 지표와 비교
+  value: number | SignalIndicator | ArithmeticExpression; // 고정값, 지표, 또는 산술 표현식
   params?: Record<string, number>; // 지표 파라미터 (예: period)
   valueParams?: Record<string, number>; // 비교 대상 지표의 파라미터 (value가 지표일 때)
 }
@@ -86,7 +99,8 @@ export type PresetStrategyId =
   | 'bollinger_trend'
   | 'ma_pullback'
   | 'bollinger_pullback'
-  | 'macd_pullback';
+  | 'macd_pullback'
+  | 'minervini_trend';
 
 /** 신호 생성 결과 */
 export interface SignalResult {

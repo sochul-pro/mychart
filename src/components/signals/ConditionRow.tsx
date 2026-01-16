@@ -48,8 +48,16 @@ export const ConditionRow = memo(function ConditionRow({
   onChange,
   onDelete,
 }: ConditionRowProps) {
-  const selectedIndicator = INDICATOR_OPTIONS.find((opt) => opt.value === condition.indicator);
+  // indicator가 ArithmeticExpression인 경우 문자열로 변환
+  const indicatorValue = typeof condition.indicator === 'string'
+    ? condition.indicator
+    : 'price'; // ArithmeticExpression은 기본값 사용 (수식 편집기에서만 생성)
+
+  const selectedIndicator = INDICATOR_OPTIONS.find((opt) => opt.value === indicatorValue);
   const needsParams = selectedIndicator?.hasParams;
+
+  // ArithmeticExpression인 경우 편집 불가 표시
+  const isArithmeticExpression = typeof condition.indicator !== 'string';
 
   const handleIndicatorChange = (indicator: SignalIndicator) => {
     const newCondition: SingleCondition = {
@@ -87,7 +95,11 @@ export const ConditionRow = memo(function ConditionRow({
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 p-2">
       {/* 지표 선택 */}
-      <Select value={condition.indicator} onValueChange={handleIndicatorChange}>
+      <Select
+        value={indicatorValue}
+        onValueChange={handleIndicatorChange}
+        disabled={isArithmeticExpression}
+      >
         <SelectTrigger className="w-[130px]">
           <SelectValue placeholder="지표" />
         </SelectTrigger>

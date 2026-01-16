@@ -388,6 +388,118 @@ export const PRESET_STRATEGIES: Record<PresetStrategyId, TradingStrategy> = {
       ],
     },
   },
+
+  // 전략 7: 마크 미너비니 Trend Template
+  // Mark Minervini의 8가지 조건 기반 강력한 상승 추세 종목 선별
+  minervini_trend: {
+    id: 'minervini_trend',
+    name: '미너비니 Trend Template',
+    description: '마크 미너비니의 8가지 조건으로 강력한 상승 추세 종목 선별',
+    buyCondition: {
+      type: 'and',
+      conditions: [
+        // 조건 1: Price > SMA(150) - 주가 > 150일선
+        {
+          type: 'single',
+          indicator: 'price',
+          operator: 'gt',
+          value: 'sma',
+          valueParams: { period: 150 },
+        },
+        // 조건 2: Price > SMA(200) - 주가 > 200일선
+        {
+          type: 'single',
+          indicator: 'price',
+          operator: 'gt',
+          value: 'sma',
+          valueParams: { period: 200 },
+        },
+        // 조건 3 & 4: SMA(150) > SMA(200) - 150일선 > 200일선 (200일선 상승 추세)
+        {
+          type: 'single',
+          indicator: 'sma',
+          operator: 'gt',
+          value: 'sma',
+          params: { period: 150 },
+          valueParams: { period: 200 },
+        },
+        // 조건 5: SMA(50) > SMA(150) - 50일선 > 150일선
+        {
+          type: 'single',
+          indicator: 'sma',
+          operator: 'gt',
+          value: 'sma',
+          params: { period: 50 },
+          valueParams: { period: 150 },
+        },
+        // 조건 6: Price > SMA(50) - 주가 > 50일선
+        {
+          type: 'single',
+          indicator: 'price',
+          operator: 'gt',
+          value: 'sma',
+          valueParams: { period: 50 },
+        },
+        // 조건 7: Price > Low_52W * 1.3 - 52주 최저가 대비 30% 이상
+        {
+          type: 'single',
+          indicator: 'price',
+          operator: 'gt',
+          value: {
+            type: 'arithmetic',
+            left: 'low_n',
+            operator: 'mul',
+            right: 1.3,
+            leftParams: { period: 252 },
+          },
+        },
+        // 조건 8: Price >= High_52W * 0.75 - 52주 최고가의 75% 이내
+        {
+          type: 'single',
+          indicator: 'price',
+          operator: 'gte',
+          value: {
+            type: 'arithmetic',
+            left: 'high_n',
+            operator: 'mul',
+            right: 0.75,
+            leftParams: { period: 252 },
+          },
+        },
+      ],
+    },
+    sellCondition: {
+      type: 'or',
+      conditions: [
+        // Price < SMA(50) - 50일선 하향 이탈
+        {
+          type: 'single',
+          indicator: 'price',
+          operator: 'lt',
+          value: 'sma',
+          valueParams: { period: 50 },
+        },
+        // SMA(50) cross_below SMA(150) - 50일선이 150일선 하향돌파
+        {
+          type: 'crossover',
+          indicator1: 'sma',
+          indicator2: 'sma',
+          direction: 'down',
+          params1: { period: 50 },
+          params2: { period: 150 },
+        },
+        // SMA(150) cross_below SMA(200) - 150일선이 200일선 하향돌파
+        {
+          type: 'crossover',
+          indicator1: 'sma',
+          indicator2: 'sma',
+          direction: 'down',
+          params1: { period: 150 },
+          params2: { period: 200 },
+        },
+      ],
+    },
+  },
 };
 
 /**
