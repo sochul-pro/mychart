@@ -54,6 +54,42 @@ export interface MarketSentimentResponse {
   updatedAt: number;
 }
 
+// 지수 백오프로 fetch 재시도 (429 에러 대응)
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  maxRetries: number = 3
+): Promise<Response> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+
+      // 429 에러 시 백오프 후 재시도
+      if (response.status === 429 && attempt < maxRetries - 1) {
+        const delay = Math.pow(2, attempt) * 1000; // 1초, 2초, 4초
+        console.log(`[Retry] 429 error, waiting ${delay}ms before retry ${attempt + 1}/${maxRetries}`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+
+      return response;
+    } catch (error) {
+      lastError = error as Error;
+
+      // 네트워크 에러 시에도 백오프 후 재시도
+      if (attempt < maxRetries - 1) {
+        const delay = Math.pow(2, attempt) * 1000;
+        console.log(`[Retry] Network error, waiting ${delay}ms before retry ${attempt + 1}/${maxRetries}`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  throw lastError || new Error('Max retries exceeded');
+}
+
 // 랜덤 User-Agent 생성
 function getRandomUserAgent(): string {
   const userAgents = [
@@ -126,9 +162,9 @@ async function fetchFearGreedIndex(): Promise<FearGreedData | null> {
   }
 }
 
-// Yahoo Finance에서 시장 지수 가져오기 (30일 히스토리 포함)
-async function fetchMarketIndex(symbol: string, name: string): Promise<IndexData | null> {
-  const cacheKey = `index_${symbol}`;
+// 네이버 금융에서 한국 시장 지수 가져오기 (KOSPI, KOSDAQ)
+async function fetchNaverIndex(indexCode: string, name: string): Promise<IndexData | null> {
+  const cacheKey = `naver_index_${indexCode}`;
   const cached = getFromCache<IndexData>(cacheKey);
   if (cached) {
     console.log(`[Cache] ${name} hit`);
@@ -136,8 +172,9 @@ async function fetchMarketIndex(symbol: string, name: string): Promise<IndexData
   }
 
   try {
-    const response = await fetch(
-      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1mo`,
+    // 기본 정보 API
+    const basicResponse = await fetch(
+      `https://m.stock.naver.com/api/index/${indexCode}/basic`,
       {
         headers: {
           'User-Agent': getRandomUserAgent(),
@@ -146,30 +183,37 @@ async function fetchMarketIndex(symbol: string, name: string): Promise<IndexData
       }
     );
 
-    if (!response.ok) {
-      console.error(`Yahoo Finance ${name} API error:`, response.status);
+    if (!basicResponse.ok) {
+      console.error(`Naver ${name} basic API error:`, basicResponse.status);
       return null;
     }
 
-    const data = await response.json();
-    const chartResult = data.chart?.result?.[0];
+    const basicData = await basicResponse.json();
 
-    if (!chartResult) {
-      console.error(`Invalid ${name} data structure`);
-      return null;
+    // 차트 데이터 API (30일)
+    const priceResponse = await fetch(
+      `https://m.stock.naver.com/api/index/${indexCode}/price?pageSize=30&page=1`,
+      {
+        headers: {
+          'User-Agent': getRandomUserAgent(),
+        },
+        cache: 'no-store',
+      }
+    );
+
+    let history: number[] = [];
+    if (priceResponse.ok) {
+      const priceData = await priceResponse.json();
+      // 가격 데이터에서 종가 추출 (최신순 -> 과거순으로 정렬)
+      history = (priceData || [])
+        .map((item: { closePrice?: string }) => parseFloat((item.closePrice || '0').replace(/,/g, '')))
+        .filter((price: number) => price > 0)
+        .reverse();
     }
 
-    const meta = chartResult.meta;
-    const currentPrice = meta.regularMarketPrice;
-    const previousClose = meta.previousClose || meta.chartPreviousClose;
-    const change = currentPrice - previousClose;
-    const changePercent = (change / previousClose) * 100;
-
-    // 종가 히스토리 추출
-    const closePrices = chartResult.indicators?.quote?.[0]?.close || [];
-    const history = closePrices
-      .filter((price: number | null) => price !== null)
-      .map((price: number) => Number(price.toFixed(2)));
+    const currentPrice = parseFloat((basicData.closePrice || '0').replace(/,/g, ''));
+    const change = parseFloat((basicData.compareToPreviousClosePrice || '0').replace(/,/g, ''));
+    const changePercent = parseFloat((basicData.fluctuationsRatio || '0').replace(/,/g, ''));
 
     const result: IndexData = {
       name,
@@ -198,14 +242,15 @@ async function fetchVixIndex(): Promise<VixData | null> {
   }
 
   try {
-    const response = await fetch(
+    const response = await fetchWithRetry(
       'https://query1.finance.yahoo.com/v8/finance/chart/%5EVIX?interval=1d&range=1mo',
       {
         headers: {
           'User-Agent': getRandomUserAgent(),
         },
         cache: 'no-store',
-      }
+      },
+      3 // 최대 3회 재시도
     );
 
     if (!response.ok) {
@@ -214,24 +259,25 @@ async function fetchVixIndex(): Promise<VixData | null> {
     }
 
     const data = await response.json();
-    const chartResult = data.chart?.result?.[0];
+    const quote = data.chart?.result?.[0];
 
-    if (!chartResult) {
+    if (!quote) {
       console.error('Invalid VIX data structure');
       return null;
     }
 
-    const meta = chartResult.meta;
-    const currentPrice = meta.regularMarketPrice;
-    const previousClose = meta.previousClose || meta.chartPreviousClose;
-    const change = currentPrice - previousClose;
-    const changePercent = (change / previousClose) * 100;
+    const meta = quote.meta;
+    const indicators = quote.indicators?.quote?.[0];
 
-    // 종가 히스토리 추출
-    const closePrices = chartResult.indicators?.quote?.[0]?.close || [];
-    const history = closePrices
+    // 30일 종가 히스토리
+    const history: number[] = (indicators?.close || [])
       .filter((price: number | null) => price !== null)
       .map((price: number) => Number(price.toFixed(2)));
+
+    const currentPrice = meta.regularMarketPrice;
+    const previousClose = meta.chartPreviousClose || meta.previousClose;
+    const change = currentPrice - previousClose;
+    const changePercent = (change / previousClose) * 100;
 
     const result: VixData = {
       value: Number(currentPrice.toFixed(2)),
@@ -253,9 +299,10 @@ async function fetchVixIndex(): Promise<VixData | null> {
 export async function GET() {
   try {
     // 병렬로 모든 API 호출
+    // KOSPI/KOSDAQ: 네이버 금융, VIX: Yahoo Finance
     const [kospi, kosdaq, fearGreed, vix] = await Promise.all([
-      fetchMarketIndex('^KS11', 'KOSPI'),
-      fetchMarketIndex('^KQ11', 'KOSDAQ'),
+      fetchNaverIndex('KOSPI', 'KOSPI'),
+      fetchNaverIndex('KOSDAQ', 'KOSDAQ'),
       fetchFearGreedIndex(),
       fetchVixIndex(),
     ]);
