@@ -3,13 +3,21 @@
 import Link from 'next/link';
 import { TrendingUp, Star, Newspaper, ArrowUp, ArrowDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { NewsFeed } from '@/components/news';
 import { MarketSentimentWidget } from '@/components/dashboard';
 import { useWatchlist } from '@/hooks/useWatchlist';
 import { useScreener } from '@/hooks/useScreener';
+import { useQueries } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
+
+interface WatchlistStock {
+  symbol: string;
+  name: string;
+  price: number;
+  changePercent: number;
+}
 
 export default function DashboardPage() {
   const { groups, isLoading: watchlistLoading } = useWatchlist();
@@ -17,8 +25,40 @@ export default function DashboardPage() {
     limit: 5,
   });
 
-  // 관심종목에서 모든 종목 코드 추출
-  const watchlistSymbols = groups.flatMap((g) => g.items.map((i) => i.symbol));
+  // 관심종목에서 모든 종목 추출 (최대 5개)
+  const watchlistItems = groups
+    .flatMap((g) => g.items.map((i) => ({ symbol: i.symbol, name: i.name })))
+    .slice(0, 5);
+  const watchlistSymbols = watchlistItems.map((i) => i.symbol);
+
+  // 관심종목 시세 조회
+  const stockQueries = useQueries({
+    queries: watchlistItems.map((item) => ({
+      queryKey: ['stock', 'data', item.symbol],
+      queryFn: async () => {
+        const res = await fetch(`/api/stocks/${item.symbol}`);
+        if (!res.ok) throw new Error('Failed to fetch');
+        return res.json();
+      },
+      enabled: !watchlistLoading && watchlistItems.length > 0,
+      staleTime: 30 * 1000,
+    })),
+  });
+
+  const watchlistStocks: WatchlistStock[] = watchlistItems
+    .map((item, index) => {
+      const query = stockQueries[index];
+      if (!query?.data?.quote) return null;
+      return {
+        symbol: item.symbol,
+        name: item.name,
+        price: query.data.quote.price,
+        changePercent: query.data.quote.changePercent,
+      };
+    })
+    .filter((s): s is WatchlistStock => s !== null);
+
+  const watchlistQuotesLoading = stockQueries.some((q) => q.isLoading);
 
   return (
     <div className="container mx-auto py-4 sm:py-6 px-4">
@@ -44,13 +84,22 @@ export default function DashboardPage() {
             </Link>
           </CardHeader>
           <CardContent>
-            {watchlistLoading ? (
+            {watchlistLoading || watchlistQuotesLoading ? (
               <div className="space-y-2">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="h-12 bg-muted animate-pulse rounded" />
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="flex items-center justify-between p-2">
+                    <div className="space-y-1">
+                      <Skeleton className="h-4 w-20" />
+                      <Skeleton className="h-3 w-16" />
+                    </div>
+                    <div className="text-right space-y-1">
+                      <Skeleton className="h-4 w-16" />
+                      <Skeleton className="h-3 w-12" />
+                    </div>
+                  </div>
                 ))}
               </div>
-            ) : groups.length === 0 ? (
+            ) : watchlistItems.length === 0 ? (
               <div className="text-center py-8">
                 <p className="text-muted-foreground mb-4">
                   관심종목이 없습니다.
@@ -62,26 +111,41 @@ export default function DashboardPage() {
                 </Link>
               </div>
             ) : (
-              <div className="space-y-2">
-                {groups.slice(0, 3).map((group) => (
-                  <div key={group.id} className="p-3 bg-muted/50 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-medium">{group.name}</span>
-                      <Badge variant="secondary">{group.items.length}</Badge>
+              <div className="space-y-1">
+                {watchlistStocks.map((stock) => (
+                  <Link
+                    key={stock.symbol}
+                    href={`/stocks/${stock.symbol}`}
+                    className="flex items-center justify-between p-2 hover:bg-muted/50 rounded-lg"
+                  >
+                    <div>
+                      <p className="font-medium text-sm">{stock.name}</p>
+                      <p className="text-xs text-muted-foreground">{stock.symbol}</p>
                     </div>
-                    <div className="flex flex-wrap gap-1">
-                      {group.items.slice(0, 3).map((item) => (
-                        <Link key={item.id} href={`/stocks/${item.symbol}`}>
-                          <Badge variant="outline" className="cursor-pointer hover:bg-muted">
-                            {item.name}
-                          </Badge>
-                        </Link>
-                      ))}
-                      {group.items.length > 3 && (
-                        <Badge variant="outline">+{group.items.length - 3}</Badge>
-                      )}
+                    <div className="text-right">
+                      <p className="font-medium text-sm">
+                        {stock.price.toLocaleString()}원
+                      </p>
+                      <p
+                        className={cn(
+                          'flex items-center justify-end gap-0.5 text-xs',
+                          stock.changePercent > 0
+                            ? 'text-red-500'
+                            : stock.changePercent < 0
+                            ? 'text-blue-500'
+                            : 'text-muted-foreground'
+                        )}
+                      >
+                        {stock.changePercent > 0 ? (
+                          <ArrowUp className="h-3 w-3" />
+                        ) : stock.changePercent < 0 ? (
+                          <ArrowDown className="h-3 w-3" />
+                        ) : null}
+                        {stock.changePercent > 0 ? '+' : ''}
+                        {stock.changePercent.toFixed(2)}%
+                      </p>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             )}
