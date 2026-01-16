@@ -766,6 +766,32 @@ npm run test:e2e:report # 테스트 리포트
 
 ---
 
+### MAINT-011: 산술 연산자 및 미너비니 전략 추가 ✅
+**설명**: 수식 편집기에 산술 연산자 추가 및 마크 미너비니 Trend Template 전략 프리셋 등록
+**범위**:
+- 산술 연산자 지원 (*, /)
+  - ArithmeticOperator, ArithmeticExpression 타입 정의
+  - formula.ts 토큰화 및 파서 확장
+  - conditions.ts calculateArithmetic 함수
+  - engine.ts evaluateArithmeticExpression 함수
+- 미너비니 Trend Template 전략 (7번째 기본 프리셋)
+  - 8가지 조건: 이동평균선 정배열 + 52주 최저가 대비 30% + 52주 최고가 75% 이내
+  - 매도 조건: 50일선 이탈 또는 데드크로스
+- 수식 문법 문서 업데이트
+
+**산출물**:
+- `src/lib/signals/types.ts` (수정)
+- `src/lib/signals/formula.ts` (수정)
+- `src/lib/signals/conditions.ts` (수정)
+- `src/lib/signals/engine.ts` (수정)
+- `src/lib/signals/presets.ts` (수정)
+- `src/components/signals/ConditionRow.tsx` (수정)
+- `docs/FORMULA_SYNTAX.md` (수정)
+
+**완료**: 2026-01-16 (#72)
+
+---
+
 ## Phase 7: 테마 시스템
 
 ### TASK-026: 테마 데이터 Provider 구현 ✅
@@ -1216,6 +1242,7 @@ TASK-016 + TASK-014 + TASK-012 + TASK-015
 | 1.9 | 2026-01-15 | MAINT-008 관심테마 스파크라인 차트 개선 (#67) - 실제 데이터, 미니 캔들스틱 |
 | 2.0 | 2026-01-16 | MAINT-009 시장 지표 위젯 버그 수정 (#70) - 숫자 파싱, 지수 백오프 |
 | 2.1 | 2026-01-16 | MAINT-010 대시보드 관심종목 UI 개선 (#71) - 가격/등락율 표시 |
+| 2.2 | 2026-01-16 | MAINT-011 산술 연산자 및 미너비니 전략 추가 (#72) - 곱셈/나눗셈 연산자, Trend Template |
 
 ---
 
@@ -1231,12 +1258,12 @@ TASK-016 + TASK-014 + TASK-012 + TASK-015
 | Phase 5 | 3 | 3 | 0 | 0 |
 | Phase 6 | 4 | 4 | 0 | 0 |
 | Phase 7 | 11 | 11 | 0 | 0 |
-| Maintenance | 10 | 10 | 0 | 0 |
-| **합계** | **46** | **46** | **0** | **0** |
+| Maintenance | 11 | 11 | 0 | 0 |
+| **합계** | **47** | **47** | **0** | **0** |
 
-### 완료 태스크 (✅): 46개
+### 완료 태스크 (✅): 47개
 - TASK-001~036 전체 완료
-- MAINT-001~010 보완 사항 완료
+- MAINT-001~011 보완 사항 완료
 
 ### 주요 완료 이력
 
@@ -1259,3 +1286,4 @@ TASK-016 + TASK-014 + TASK-012 + TASK-015
 | 2026-01-15 | MAINT-008 관심테마 스파크라인 차트 개선 | #67 |
 | 2026-01-16 | MAINT-009 시장 지표 위젯 버그 수정 | #70 |
 | 2026-01-16 | MAINT-010 대시보드 관심종목 UI 개선 | #71 |
+| 2026-01-16 | MAINT-011 산술 연산자 및 미너비니 전략 추가 | #72 |
