@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { NewsFeed } from '@/components/news';
+import { MarketSentimentWidget } from '@/components/dashboard';
 import { useWatchlist } from '@/hooks/useWatchlist';
 import { useScreener } from '@/hooks/useScreener';
 import { cn } from '@/lib/utils';
@@ -22,6 +23,11 @@ export default function DashboardPage() {
   return (
     <div className="container mx-auto py-4 sm:py-6 px-4">
       <h1 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">대시보드</h1>
+
+      {/* 시장 심리 지표 */}
+      <div className="mb-4 sm:mb-6">
+        <MarketSentimentWidget />
+      </div>
 
       <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
         {/* 관심종목 요약 */}
