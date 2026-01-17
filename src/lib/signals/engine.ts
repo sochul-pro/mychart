@@ -204,7 +204,7 @@ export function generateSignals(
         type: 'buy',
         time: data[i].time,
         price: data[i].close,
-        reason: getConditionDescription(strategy.buyCondition),
+        reason: getConditionDescriptionWithValues(strategy.buyCondition, data, i, cache),
       });
       hasPosition = true;
     }
@@ -215,7 +215,7 @@ export function generateSignals(
         type: 'sell',
         time: data[i].time,
         price: data[i].close,
-        reason: getConditionDescription(strategy.sellCondition),
+        reason: getConditionDescriptionWithValues(strategy.sellCondition, data, i, cache),
       });
       hasPosition = false;
     }
@@ -226,6 +226,79 @@ export function generateSignals(
     buyCount: signals.filter((s) => s.type === 'buy').length,
     sellCount: signals.filter((s) => s.type === 'sell').length,
   };
+}
+
+/**
+ * 조건 설명 생성 (실제 값 포함)
+ */
+function getConditionDescriptionWithValues(
+  condition: Condition,
+  data: OHLCV[],
+  index: number,
+  cache: IndicatorCache
+): string {
+  switch (condition.type) {
+    case 'single': {
+      const indicatorName = formatIndicatorOrExpression(condition.indicator, condition.params);
+      const actualValue = getIndicatorOrExpressionValue(condition.indicator, condition.params, data, index, cache);
+      const operator = formatOperator(condition.operator);
+
+      let targetValue: string;
+      let targetActual: number | null = null;
+      if (typeof condition.value === 'number') {
+        targetValue = condition.value.toString();
+      } else if (typeof condition.value === 'object' && condition.value.type === 'arithmetic') {
+        targetValue = formatArithmeticExpression(condition.value);
+        targetActual = evaluateArithmeticExpression(condition.value, data, index, cache);
+      } else {
+        const compareParams = condition.valueParams ?? condition.params;
+        targetValue = formatIndicator(condition.value as SignalIndicator, compareParams);
+        const compareValues = getIndicatorValues(data, condition.value as SignalIndicator, compareParams, cache);
+        targetActual = compareValues[index];
+      }
+
+      const actualStr = actualValue !== null ? formatNumber(actualValue) : 'N/A';
+      if (targetActual !== null) {
+        return `${indicatorName}(${actualStr}) ${operator} ${targetValue}(${formatNumber(targetActual)})`;
+      }
+      return `${indicatorName}(${actualStr}) ${operator} ${targetValue}`;
+    }
+    case 'crossover': {
+      const ind1Name = formatIndicator(condition.indicator1, condition.params1);
+      const ind2Name = formatIndicator(condition.indicator2, condition.params2);
+      const values1 = getIndicatorValues(data, condition.indicator1, condition.params1, cache);
+      const values2 = getIndicatorValues(data, condition.indicator2, condition.params2, cache);
+      const val1 = values1[index];
+      const val2 = values2[index];
+      const direction = condition.direction === 'up' ? '상향돌파' : '하향돌파';
+      return `${ind1Name}(${formatNumber(val1)})이(가) ${ind2Name}(${formatNumber(val2)})을(를) ${direction}`;
+    }
+    case 'and':
+      return condition.conditions.map((c) => getConditionDescriptionWithValues(c, data, index, cache)).join(' AND ');
+    case 'or': {
+      // OR 조건의 경우 만족된 조건만 표시
+      const satisfiedConditions = condition.conditions
+        .filter((c) => evaluateCondition(c, data, index, cache))
+        .map((c) => getConditionDescriptionWithValues(c, data, index, cache));
+      if (satisfiedConditions.length > 0) {
+        return satisfiedConditions.join(' OR ');
+      }
+      return condition.conditions.map((c) => getConditionDescriptionWithValues(c, data, index, cache)).join(' OR ');
+    }
+    default:
+      return '';
+  }
+}
+
+/**
+ * 숫자 포맷 (천 단위 구분)
+ */
+function formatNumber(value: number | null): string {
+  if (value === null) return 'N/A';
+  if (Math.abs(value) >= 1000) {
+    return value.toLocaleString('ko-KR', { maximumFractionDigits: 0 });
+  }
+  return value.toLocaleString('ko-KR', { maximumFractionDigits: 2 });
 }
 
 /**

@@ -38,7 +38,7 @@ const NON_MA_INDICATOR_DESCRIPTIONS: Record<NonMAIndicatorType, string> = {
 const MA_COLORS = ['#2196F3', '#FF9800', '#4CAF50', '#E91E63', '#9C27B0'];
 
 // 이동평균선 기본 기간
-const DEFAULT_MA_PERIODS = [5, 10, 20, 60, 120];
+const DEFAULT_MA_PERIODS = [5, 10, 20, 50, 120];
 
 /**
  * 지표 토글 및 설정 패널

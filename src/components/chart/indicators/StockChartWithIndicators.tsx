@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useCallback, useMemo } from 'react';
+import { useEffect, useRef, useCallback, useMemo, useState } from 'react';
 import {
   createChart,
   IChartApi,
@@ -29,6 +29,8 @@ export interface SignalMarker {
   color: string;
   shape: MarkerShape;
   strategyName: string;
+  reason?: string; // 신호 발생 조건
+  price?: number; // 신호 발생 시점 가격
 }
 
 export interface StockChartWithIndicatorsProps {
@@ -139,6 +141,16 @@ export function StockChartWithIndicators({
   // 동기화 관련 refs
   const isSyncingRef = useRef(false);
   const isDisposedRef = useRef(false);
+
+  // 호버된 신호 정보 상태
+  const [hoveredSignals, setHoveredSignals] = useState<SignalMarker[]>([]);
+  const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
+
+  // signalMarkers를 ref로 저장 (크로스헤어 핸들러에서 최신값 참조용)
+  const signalMarkersRef = useRef<SignalMarker[]>(signalMarkers);
+  useEffect(() => {
+    signalMarkersRef.current = signalMarkers;
+  }, [signalMarkers]);
 
   // 활성화된 지표 필터링
   const enabledIndicators = useMemo(
@@ -280,6 +292,32 @@ export function StockChartWithIndicators({
     // 시간축 동기화 구독
     chart.timeScale().subscribeVisibleLogicalRangeChange(() => {
       syncChartsFromMain();
+    });
+
+    // 크로스헤어 이동 이벤트 (신호 툴팁용)
+    chart.subscribeCrosshairMove((param) => {
+      if (!param.time || !param.point || param.point.x < 0 || param.point.y < 0) {
+        setHoveredSignals([]);
+        setTooltipPosition(null);
+        return;
+      }
+
+      // 현재 커서 위치의 시간 (초 단위)
+      const cursorTime = param.time as number;
+
+      // 해당 시간에 있는 신호 찾기 (ref에서 최신값 참조)
+      const matchingSignals = signalMarkersRef.current.filter((signal) => {
+        const signalTime = Math.floor(signal.time / 1000);
+        return signalTime === cursorTime;
+      });
+
+      if (matchingSignals.length > 0) {
+        setHoveredSignals(matchingSignals);
+        setTooltipPosition({ x: param.point.x, y: param.point.y });
+      } else {
+        setHoveredSignals([]);
+        setTooltipPosition(null);
+      }
     });
 
     const handleResize = () => {
@@ -818,11 +856,64 @@ export function StockChartWithIndicators({
       </div>
 
       {/* 메인 차트 */}
-      <div
-        ref={mainContainerRef}
-        style={{ width: '100%', height }}
-        data-testid="main-chart"
-      />
+      <div className="relative">
+        <div
+          ref={mainContainerRef}
+          style={{ width: '100%', height }}
+          data-testid="main-chart"
+        />
+
+        {/* 신호 정보 툴팁 */}
+        {hoveredSignals.length > 0 && tooltipPosition && (
+          <div
+            className="absolute z-50 pointer-events-none"
+            style={{
+              left: Math.min(tooltipPosition.x + 12, (mainContainerRef.current?.clientWidth || 300) - 280),
+              top: Math.max(tooltipPosition.y - 10, 10),
+            }}
+          >
+            <div className="bg-gray-900/95 text-white text-xs rounded-lg shadow-lg p-3 min-w-[240px] max-w-[320px]">
+              <div className="font-semibold mb-2 pb-2 border-b border-gray-700">
+                📊 매매신호 ({hoveredSignals.length}건)
+              </div>
+              <div className="space-y-3">
+                {hoveredSignals.map((signal, idx) => (
+                  <div key={idx} className="flex flex-col gap-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="w-2 h-2 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: signal.color }}
+                        />
+                        <span className="font-medium">{signal.strategyName}</span>
+                      </div>
+                      <span
+                        className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                          signal.type === 'buy'
+                            ? 'bg-green-500/20 text-green-400'
+                            : 'bg-red-500/20 text-red-400'
+                        }`}
+                      >
+                        {signal.type === 'buy' ? '매수' : '매도'}
+                      </span>
+                    </div>
+                    {signal.price && (
+                      <div className="ml-4 text-gray-300">
+                        가격: {signal.price.toLocaleString()}원
+                      </div>
+                    )}
+                    {signal.reason && (
+                      <div className="ml-4 text-gray-400 text-[11px] leading-relaxed">
+                        조건: {signal.reason}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* RSI 서브차트 */}
       {hasRSI && (

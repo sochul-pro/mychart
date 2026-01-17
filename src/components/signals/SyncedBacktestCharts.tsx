@@ -93,7 +93,7 @@ const MA_COLORS = {
   5: '#f59e0b',   // 노란색 (5일)
   10: '#ec4899',  // 분홍색 (10일)
   20: '#22c55e',  // 녹색 (20일)
-  60: '#3b82f6',  // 파란색 (60일)
+  50: '#3b82f6',  // 파란색 (50일)
 } as const;
 
 export function SyncedBacktestCharts({ result }: SyncedBacktestChartsProps) {
@@ -298,8 +298,8 @@ export function SyncedBacktestCharts({ result }: SyncedBacktestChartsProps) {
     volumeSeries.setData(toVolumeData(filteredData));
     candleSeries.setMarkers(markers);
 
-    // 이동평균선 추가 (5, 10, 20, 60일)
-    const maPeriods = [5, 10, 20, 60] as const;
+    // 이동평균선 추가 (5, 10, 20, 50일)
+    const maPeriods = [5, 10, 20, 50] as const;
     maPeriods.forEach((period) => {
       const maSeries = priceChart.addLineSeries({
         color: MA_COLORS[period],
@@ -463,7 +463,7 @@ export function SyncedBacktestCharts({ result }: SyncedBacktestChartsProps) {
                   <span className="w-4 h-0.5 bg-[#22c55e]" />20
                 </span>
                 <span className="flex items-center gap-1">
-                  <span className="w-4 h-0.5 bg-[#3b82f6]" />60
+                  <span className="w-4 h-0.5 bg-[#3b82f6]" />50
                 </span>
               </div>
             </div>

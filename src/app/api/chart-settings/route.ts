@@ -108,7 +108,7 @@ function getDefaultIndicators() {
     { type: 'sma', period: 5, color: '#2196F3', enabled: false },
     { type: 'sma', period: 10, color: '#FF9800', enabled: false },
     { type: 'sma', period: 20, color: '#4CAF50', enabled: true },
-    { type: 'sma', period: 60, color: '#E91E63', enabled: true },
+    { type: 'sma', period: 50, color: '#E91E63', enabled: true },
     { type: 'sma', period: 120, color: '#9C27B0', enabled: false },
     { type: 'bollinger', period: 20, stdDev: 2, color: '#9C27B0', enabled: false },
     { type: 'rsi', period: 14, overbought: 70, oversold: 30, color: '#E91E63', enabled: false },

@@ -107,6 +107,8 @@ export function StockChartCard({
           color: signal.type === 'buy' ? styleSet.buy : styleSet.sell,
           shape: signal.type === 'buy' ? strategy.buyShape : strategy.sellShape,
           strategyName: strategy.name,
+          reason: signal.reason,
+          price: signal.price,
         });
       }
     }
