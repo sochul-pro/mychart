@@ -22,6 +22,7 @@ model User {
   favoriteThemes     FavoriteTheme[]
   signalAlerts       SignalAlert[]
   alertNotifications AlertNotification[]
+  comparisonSets     ComparisonSet[]
 }
 
 // 관심종목 그룹
@@ -247,5 +248,21 @@ model FavoriteTheme {
   updatedAt    DateTime @updatedAt
 
   @@unique([userId, themeId])
+  @@index([userId])
+}
+
+// 비교 세트 (상대 수익률 비교 차트용)
+model ComparisonSet {
+  id        String   @id @default(cuid())
+  name      String   // 세트 이름 (예: "반도체 대장주 비교")
+  order     Int      @default(0)
+  symbols   String[] // 종목/지수 코드 목록 (최대 10개)
+  period    String   @default("6M") // 기본 기간 (1M, 3M, 6M, 1Y, 2Y)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, name]) // 사용자별 세트 이름 유니크
   @@index([userId])
 }

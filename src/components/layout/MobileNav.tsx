@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Menu, LayoutDashboard, Star, Search, Layers, Settings, LogOut, Activity } from 'lucide-react';
+import { Menu, LayoutDashboard, Star, Search, Layers, Settings, LogOut, Activity, GitCompare } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import {
@@ -21,6 +21,7 @@ const navItems = [
   { href: '/screener', label: '스크리너', icon: Search },
   { href: '/themes', label: '테마', icon: Layers },
   { href: '/signals', label: '매매신호', icon: Activity },
+  { href: '/compare', label: '비교', icon: GitCompare },
   { href: '/settings', label: '설정', icon: Settings },
 ];
 

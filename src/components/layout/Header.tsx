@@ -11,6 +11,7 @@ const navItems = [
   { href: '/screener', label: '스크리너' },
   { href: '/themes', label: '테마' },
   { href: '/signals', label: '매매신호' },
+  { href: '/compare', label: '비교' },
 ];
 
 interface HeaderProps {
