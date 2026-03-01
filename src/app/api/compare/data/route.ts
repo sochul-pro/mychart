@@ -134,13 +134,13 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    // 시간축 정렬 (선택적 - 현재 비활성화)
-    // const aligned = alignTimeSeries(normalizedDatasets);
-    // aligned.forEach((values, code) => {
-    //   if (items[code]) {
-    //     items[code].values = values;
-    //   }
-    // });
+    // 시간축 정렬 - Forward Fill 방식으로 누락 데이터 채움
+    const aligned = alignTimeSeries(normalizedDatasets);
+    aligned.forEach((values, code) => {
+      if (items[code]) {
+        items[code].values = values;
+      }
+    });
 
     const response: ComparisonData = {
       period,
