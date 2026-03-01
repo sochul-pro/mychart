@@ -376,6 +376,25 @@
 
 ---
 
+### TASK-025: 수익률 비교 차트 종목 표시/숨김 토글 ✅
+**상태**: 완료 (2026-03-01, #76)
+**설명**: 범례에서 개별 종목의 차트 표시 여부를 토글하는 기능
+**범위**:
+- ComparisonItem 타입에 `visible` 속성 추가
+- 범례에 체크박스 UI 추가 (체크박스 > 색상 > 종목명 > 수익률 > 삭제버튼)
+- 체크 해제 시 차트에서 숨김 + 범례 항목 흐리게 표시 (opacity 50%)
+- alignTimeSeries 비활성화 (종목명 표시 문제 해결)
+
+**변경 파일**:
+- `src/types/comparison.ts`
+- `src/app/(main)/compare/page.tsx`
+- `src/components/compare/ComparisonLegend.tsx`
+- `src/app/api/compare/data/route.ts`
+
+**의존성**: TASK-024
+
+---
+
 ## 유지보수
 
 ### MAINT-011: 마크 미너비니 Trend Template 전략 ✅
@@ -389,7 +408,7 @@
 **범위**:
 - 0% 기준선 안정화 (별도 시리즈로 분리, 종목 삭제와 무관하게 유지)
 - 에러 UI 추가 (API 실패 시 에러 메시지 + 재시도 버튼)
-- alignTimeSeries 활성화 (모든 종목의 시간축 정렬)
+- alignTimeSeries 활성화 (이후 TASK-025에서 비활성화)
 - 미사용 onCrosshairMove prop 제거
 - toComparePeriod() 함수 추가로 타입 안전성 개선
 
@@ -462,3 +481,4 @@ TASK-016 + TASK-014 + TASK-012 + TASK-015
 | 0.2 | 2026-02-28 | TASK-024 (상대 수익률 비교 차트) 추가 |
 | 0.3 | 2026-02-28 | TASK-024 완료 (#74) - 버그 수정 포함 |
 | 0.4 | 2026-03-01 | MAINT-012 완료 (#75) - 수익률 비교 기능 개선 |
+| 0.5 | 2026-03-01 | TASK-025 완료 (#76) - 종목 표시/숨김 토글 기능 |
