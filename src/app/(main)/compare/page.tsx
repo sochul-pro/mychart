@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useCallback, useMemo, useEffect } from 'react';
-import { Plus, RefreshCw } from 'lucide-react';
+import { Plus, RefreshCw, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   ComparisonChart,
   ComparisonLegend,
@@ -14,7 +15,7 @@ import {
 import { useComparison } from '@/hooks/useComparison';
 import { useComparisonSets } from '@/hooks/useComparisonSets';
 import type { ComparePeriod, ComparisonItem, ComparisonItemType, ComparisonSet } from '@/types/comparison';
-import { getComparisonColor, isIndexCode, SUPPORTED_INDICES } from '@/types/comparison';
+import { getComparisonColor, isIndexCode, SUPPORTED_INDICES, toComparePeriod } from '@/types/comparison';
 
 export default function ComparePage() {
   // 상태
@@ -30,6 +31,7 @@ export default function ComparePage() {
   const {
     data: comparisonData,
     isLoading: isDataLoading,
+    error: dataError,
     refetch: refetchData,
   } = useComparison({
     symbols,
@@ -128,7 +130,7 @@ export default function ComparePage() {
     });
 
     setItems(loadedItems);
-    setPeriod(set.period as ComparePeriod);
+    setPeriod(toComparePeriod(set.period));
     setCurrentSetId(set.id);
   }, []);
 
@@ -232,6 +234,19 @@ export default function ComparePage() {
           {isDataLoading ? (
             <div className="flex h-[400px] items-center justify-center">
               <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : dataError ? (
+            <div className="flex h-[400px] flex-col items-center justify-center gap-4">
+              <Alert variant="destructive" className="max-w-md">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  데이터를 불러오는데 실패했습니다. 다시 시도해주세요.
+                </AlertDescription>
+              </Alert>
+              <Button variant="outline" onClick={() => refetchData()}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                다시 시도
+              </Button>
             </div>
           ) : (
             <ComparisonChart

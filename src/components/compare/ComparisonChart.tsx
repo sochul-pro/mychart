@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useMemo, memo } from 'react';
+import { useEffect, useRef, memo } from 'react';
 import {
   createChart,
   IChartApi,
@@ -12,7 +12,7 @@ import {
   LineStyle,
 } from 'lightweight-charts';
 import type { ComparisonData, NormalizedDataPoint } from '@/types/comparison';
-import { COMPARISON_COLORS, getComparisonColor } from '@/types/comparison';
+import { getComparisonColor } from '@/types/comparison';
 import { formatReturn } from '@/lib/comparison/normalize';
 
 export interface ComparisonChartProps {
@@ -24,8 +24,6 @@ export interface ComparisonChartProps {
   height?: number;
   /** 클래스명 */
   className?: string;
-  /** 툴팁 표시 콜백 */
-  onCrosshairMove?: (time: number | null, values: Record<string, number>) => void;
 }
 
 /** 정규화된 데이터를 Lightweight Charts 형식으로 변환 */
@@ -46,11 +44,11 @@ export const ComparisonChart = memo(function ComparisonChart({
   orderedCodes,
   height = 400,
   className = '',
-  onCrosshairMove,
 }: ComparisonChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRefs = useRef<Map<string, ISeriesApi<'Line'>>>(new Map());
+  const baselineSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
 
   // 차트 초기화
   useEffect(() => {
@@ -114,17 +112,26 @@ export const ComparisonChart = memo(function ComparisonChart({
 
     chartRef.current = chart;
 
-    // 0% 기준선 추가
-    // Lightweight Charts는 직접적인 기준선 지원이 없으므로
-    // 프라이스 라인으로 대체
-    chart.applyOptions({
-      rightPriceScale: {
-        scaleMargins: {
-          top: 0.1,
-          bottom: 0.1,
-        },
-      },
+    // 0% 기준선용 투명 시리즈 생성 (종목 시리즈와 독립적으로 유지)
+    const baselineSeries = chart.addLineSeries({
+      color: 'transparent',
+      lineWidth: 1,
+      visible: false, // 라인 자체는 숨김
+      crosshairMarkerVisible: false,
+      lastValueVisible: false,
+      priceLineVisible: false,
     });
+    baselineSeries.createPriceLine({
+      price: 0,
+      color: 'rgba(156, 163, 175, 0.5)',
+      lineWidth: 1,
+      lineStyle: LineStyle.Dashed,
+      axisLabelVisible: true,
+      title: '0%',
+    });
+    // 기준선이 보이도록 최소한의 데이터 설정
+    baselineSeries.setData([{ time: 0 as Time, value: 0 }]);
+    baselineSeriesRef.current = baselineSeries;
 
     // 반응형 리사이즈
     const handleResize = () => {
@@ -137,35 +144,17 @@ export const ComparisonChart = memo(function ComparisonChart({
 
     window.addEventListener('resize', handleResize);
 
-    // 크로스헤어 이벤트
-    chart.subscribeCrosshairMove((param) => {
-      if (!onCrosshairMove) return;
-
-      if (!param.time || !param.seriesData) {
-        onCrosshairMove(null, {});
-        return;
-      }
-
-      const values: Record<string, number> = {};
-      param.seriesData.forEach((value, series) => {
-        const code = Array.from(seriesRefs.current.entries()).find(
-          ([, s]) => s === series
-        )?.[0];
-        if (code && 'value' in value) {
-          values[code] = value.value as number;
-        }
-      });
-
-      onCrosshairMove(param.time as number, values);
-    });
+    // cleanup을 위해 현재 ref 값을 캡처
+    const currentSeriesRefs = seriesRefs.current;
 
     return () => {
       window.removeEventListener('resize', handleResize);
       chart.remove();
       chartRef.current = null;
-      seriesRefs.current.clear();
+      currentSeriesRefs.clear();
+      baselineSeriesRef.current = null;
     };
-  }, [height, onCrosshairMove]);
+  }, [height]);
 
   // orderedCodes를 문자열로 변환하여 의존성 비교에 사용
   const orderedCodesKey = orderedCodes.join(',');
@@ -208,23 +197,26 @@ export const ComparisonChart = memo(function ComparisonChart({
 
       // 데이터 설정
       series.setData(lineData);
-
-      // 0% 기준선 추가 (첫 번째 시리즈에만)
-      if (index === 0) {
-        series.createPriceLine({
-          price: 0,
-          color: 'rgba(156, 163, 175, 0.5)',
-          lineWidth: 1,
-          lineStyle: LineStyle.Dashed,
-          axisLabelVisible: true,
-          title: '0%',
-        });
-      }
     });
+
+    // 기준선 시리즈 데이터를 실제 데이터 범위에 맞게 업데이트
+    if (baselineSeriesRef.current && orderedCodes.length > 0) {
+      const firstCode = orderedCodes[0];
+      const firstItem = items[firstCode];
+      if (firstItem && firstItem.values.length > 0) {
+        const firstTime = firstItem.values[0].time;
+        const lastTime = firstItem.values[firstItem.values.length - 1].time;
+        baselineSeriesRef.current.setData([
+          { time: firstTime as Time, value: 0 },
+          { time: lastTime as Time, value: 0 },
+        ]);
+      }
+    }
 
     // 차트 범위 자동 조정
     chart.timeScale().fitContent();
-  }, [data, orderedCodesKey]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, orderedCodesKey]); // orderedCodesKey는 orderedCodes의 문자열 표현
 
   return (
     <div className={`relative ${className}`}>

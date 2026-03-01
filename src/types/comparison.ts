@@ -125,3 +125,13 @@ export function isIndexCode(code: string): boolean {
 export function getComparisonColor(index: number): string {
   return COMPARISON_COLORS[index % COMPARISON_COLORS.length];
 }
+
+// 유효한 기간인지 확인
+export function isValidComparePeriod(period: string): period is ComparePeriod {
+  return Object.keys(PERIOD_LIMITS).includes(period);
+}
+
+// 안전하게 기간 변환 (유효하지 않으면 기본값 반환)
+export function toComparePeriod(period: string, defaultPeriod: ComparePeriod = '6M'): ComparePeriod {
+  return isValidComparePeriod(period) ? period : defaultPeriod;
+}
