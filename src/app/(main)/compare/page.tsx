@@ -279,6 +279,7 @@ export default function ComparePage() {
             <ComparisonChart
               data={comparisonData ?? null}
               orderedCodes={visibleSymbols}
+              items={items}
               chartType={chartType}
               height={400}
               className="min-h-[400px]"

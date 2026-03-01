@@ -14,18 +14,20 @@ import {
 } from 'lightweight-charts';
 import type {
   ComparisonData,
+  ComparisonItem,
   NormalizedDataPoint,
   NormalizedOHLCPoint,
   ComparisonChartType,
 } from '@/types/comparison';
-import { getComparisonColor } from '@/types/comparison';
 import { formatReturn } from '@/lib/comparison/normalize';
 
 export interface ComparisonChartProps {
   /** 비교 데이터 */
   data: ComparisonData | null;
-  /** 종목 코드 순서 (색상 매칭용) */
+  /** 종목 코드 순서 (표시할 종목) */
   orderedCodes: string[];
+  /** 종목 목록 (색상 정보 포함) */
+  items: ComparisonItem[];
   /** 차트 타입 (기본값: 'line') */
   chartType?: ComparisonChartType;
   /** 차트 높이 (기본값: 400) */
@@ -88,6 +90,7 @@ function getCandleColors(baseColor: string) {
 export const ComparisonChart = memo(function ComparisonChart({
   data,
   orderedCodes,
+  items,
   chartType = 'line',
   height = 400,
   className = '',
@@ -205,31 +208,34 @@ export const ComparisonChart = memo(function ComparisonChart({
 
   // orderedCodes를 문자열로 변환하여 의존성 비교에 사용
   const orderedCodesKey = orderedCodes.join(',');
+  // items의 색상 변경 감지용 키
+  const itemsColorKey = items.map((i) => `${i.code}:${i.color}`).join(',');
 
   // 데이터 업데이트
   useEffect(() => {
     if (!chartRef.current || !data) return;
 
     const chart = chartRef.current;
-    const items = data.items;
 
-    // 모든 기존 시리즈 제거 (색상 순서 보장을 위해)
+    // 모든 기존 시리즈 제거
     seriesRefs.current.forEach((series) => {
       chart.removeSeries(series);
     });
     seriesRefs.current.clear();
 
-    // orderedCodes 순서대로 시리즈 새로 생성 (색상 순서 보장)
-    orderedCodes.forEach((code, index) => {
-      const item = items[code];
-      if (!item) return; // 데이터가 아직 로드되지 않은 경우
+    // orderedCodes 순서대로 시리즈 새로 생성
+    orderedCodes.forEach((code) => {
+      const dataItem = data.items[code];
+      if (!dataItem) return; // 데이터가 아직 로드되지 않은 경우
 
-      const color = getComparisonColor(index);
+      // items에서 해당 종목의 고정 색상 가져오기
+      const comparisonItem = items.find((i) => i.code === code);
+      const color = comparisonItem?.color || '#888888';
 
-      if (chartType === 'candle' && item.ohlcValues && item.ohlcValues.length > 0) {
+      if (chartType === 'candle' && dataItem.ohlcValues && dataItem.ohlcValues.length > 0) {
         // 봉차트 시리즈 생성
         const candleColors = getCandleColors(color);
-        const candleData = toCandleData(item.ohlcValues);
+        const candleData = toCandleData(dataItem.ohlcValues);
 
         const series = chart.addCandlestickSeries({
           ...candleColors,
@@ -244,7 +250,7 @@ export const ComparisonChart = memo(function ComparisonChart({
         series.setData(candleData);
       } else {
         // 선차트 시리즈 생성
-        const lineData = toLineData(item.values);
+        const lineData = toLineData(dataItem.values);
 
         const series = chart.addLineSeries({
           color,
@@ -266,10 +272,10 @@ export const ComparisonChart = memo(function ComparisonChart({
     // 기준선 시리즈 데이터를 실제 데이터 범위에 맞게 업데이트
     if (baselineSeriesRef.current && orderedCodes.length > 0) {
       const firstCode = orderedCodes[0];
-      const firstItem = items[firstCode];
-      if (firstItem && firstItem.values.length > 0) {
-        const firstTime = firstItem.values[0].time;
-        const lastTime = firstItem.values[firstItem.values.length - 1].time;
+      const firstDataItem = data.items[firstCode];
+      if (firstDataItem && firstDataItem.values.length > 0) {
+        const firstTime = firstDataItem.values[0].time;
+        const lastTime = firstDataItem.values[firstDataItem.values.length - 1].time;
         baselineSeriesRef.current.setData([
           { time: firstTime as Time, value: 0 },
           { time: lastTime as Time, value: 0 },
@@ -280,7 +286,7 @@ export const ComparisonChart = memo(function ComparisonChart({
     // 차트 범위 자동 조정
     chart.timeScale().fitContent();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, orderedCodesKey, chartType]); // orderedCodesKey는 orderedCodes의 문자열 표현
+  }, [data, orderedCodesKey, itemsColorKey, chartType]);
 
   return (
     <div className={`relative ${className}`}>
