@@ -9,18 +9,20 @@ import {
   ComparisonChart,
   ComparisonLegend,
   ComparisonPeriodSelector,
+  ComparisonChartTypeSelector,
   ComparisonSymbolSearch,
   ComparisonSetManager,
 } from '@/components/compare';
 import { useComparison } from '@/hooks/useComparison';
 import { useComparisonSets } from '@/hooks/useComparisonSets';
-import type { ComparePeriod, ComparisonItem, ComparisonItemType, ComparisonSet } from '@/types/comparison';
+import type { ComparePeriod, ComparisonChartType, ComparisonItem, ComparisonItemType, ComparisonSet } from '@/types/comparison';
 import { getComparisonColor, isIndexCode, SUPPORTED_INDICES, toComparePeriod } from '@/types/comparison';
 
 export default function ComparePage() {
   // 상태
   const [items, setItems] = useState<ComparisonItem[]>([]);
   const [period, setPeriod] = useState<ComparePeriod>('6M');
+  const [chartType, setChartType] = useState<ComparisonChartType>('line');
   const [currentSetId, setCurrentSetId] = useState<string | undefined>();
   const [searchOpen, setSearchOpen] = useState(false);
 
@@ -211,12 +213,19 @@ export default function ComparePage() {
               )}
             </div>
 
-            {/* 기간 선택 */}
-            <ComparisonPeriodSelector
-              value={period}
-              onChange={handlePeriodChange}
-              disabled={isDataLoading}
-            />
+            {/* 기간 및 차트 타입 선택 */}
+            <div className="flex items-center gap-2">
+              <ComparisonPeriodSelector
+                value={period}
+                onChange={handlePeriodChange}
+                disabled={isDataLoading}
+              />
+              <ComparisonChartTypeSelector
+                value={chartType}
+                onChange={setChartType}
+                disabled={isDataLoading}
+              />
+            </div>
           </div>
 
           {/* 추가된 종목 목록 (범례) */}
@@ -270,6 +279,7 @@ export default function ComparePage() {
             <ComparisonChart
               data={comparisonData ?? null}
               orderedCodes={visibleSymbols}
+              chartType={chartType}
               height={400}
               className="min-h-[400px]"
             />

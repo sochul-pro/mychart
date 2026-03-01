@@ -3,6 +3,7 @@ import { stockProvider } from '@/lib/api/provider-factory';
 import { normalizeSymbol } from '@/lib/validation';
 import {
   normalizeToReturn,
+  normalizeOHLCToReturn,
   calculateCurrentReturn,
   alignTimeSeries,
   getStartDateForPeriod,
@@ -117,12 +118,14 @@ export async function GET(request: NextRequest) {
           name: result.name,
           type: result.type,
           values: [],
+          ohlcValues: [],
           currentReturn: 0,
         };
         return;
       }
 
       const normalized = normalizeToReturn(result.ohlcv, period);
+      const ohlcNormalized = normalizeOHLCToReturn(result.ohlcv, period);
       const currentReturn = calculateCurrentReturn(result.ohlcv, period);
 
       normalizedDatasets.set(result.code, normalized);
@@ -130,6 +133,7 @@ export async function GET(request: NextRequest) {
         name: result.name,
         type: result.type,
         values: normalized,
+        ohlcValues: ohlcNormalized,
         currentReturn,
       };
     });

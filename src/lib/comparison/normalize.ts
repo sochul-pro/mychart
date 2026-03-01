@@ -3,7 +3,7 @@
  */
 
 import type { OHLCV } from '@/types';
-import type { NormalizedDataPoint, ComparePeriod } from '@/types/comparison';
+import type { NormalizedDataPoint, NormalizedOHLCPoint, ComparePeriod } from '@/types/comparison';
 import { PERIOD_LIMITS } from '@/types/comparison';
 
 /**
@@ -35,6 +35,40 @@ export function normalizeToReturn(
     // Lightweight Charts는 초 단위 timestamp 사용
     time: Math.floor(d.time / 1000),
     value: ((d.close - basePrice) / basePrice) * 100,
+  }));
+}
+
+/**
+ * OHLCV 데이터를 OHLC 수익률(%)로 정규화 (봉차트용)
+ * 첫 번째 데이터의 종가를 기준으로 OHLC 모두 수익률 계산
+ *
+ * @param data - OHLCV 데이터 배열 (시간순 정렬)
+ * @param period - 기간 (데이터 개수 제한용)
+ * @returns 정규화된 OHLC 데이터 포인트 배열
+ */
+export function normalizeOHLCToReturn(
+  data: OHLCV[],
+  period: ComparePeriod
+): NormalizedOHLCPoint[] {
+  if (data.length === 0) return [];
+
+  // 기간에 맞게 데이터 자르기 (최근 N개)
+  const limit = PERIOD_LIMITS[period];
+  const slicedData = data.slice(-limit);
+
+  if (slicedData.length === 0) return [];
+
+  // 첫 번째 데이터의 종가를 기준으로 수익률 계산
+  const basePrice = slicedData[0].close;
+
+  if (basePrice === 0) return [];
+
+  return slicedData.map((d) => ({
+    time: Math.floor(d.time / 1000),
+    open: ((d.open - basePrice) / basePrice) * 100,
+    high: ((d.high - basePrice) / basePrice) * 100,
+    low: ((d.low - basePrice) / basePrice) * 100,
+    close: ((d.close - basePrice) / basePrice) * 100,
   }));
 }
 
