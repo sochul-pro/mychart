@@ -376,6 +376,33 @@
 
 ---
 
+## 유지보수
+
+### MAINT-011: 마크 미너비니 Trend Template 전략 ✅
+**상태**: 완료 (2026-02-28, #72)
+
+---
+
+### MAINT-012: 수익률 비교 기능 개선 ✅
+**상태**: 완료 (2026-03-01, #75)
+**설명**: 수익률 비교 차트 기능의 안정성 및 사용성 개선
+**범위**:
+- 0% 기준선 안정화 (별도 시리즈로 분리, 종목 삭제와 무관하게 유지)
+- 에러 UI 추가 (API 실패 시 에러 메시지 + 재시도 버튼)
+- alignTimeSeries 활성화 (모든 종목의 시간축 정렬)
+- 미사용 onCrosshairMove prop 제거
+- toComparePeriod() 함수 추가로 타입 안전성 개선
+
+**변경 파일**:
+- `src/components/compare/ComparisonChart.tsx`
+- `src/app/(main)/compare/page.tsx`
+- `src/app/api/compare/data/route.ts`
+- `src/types/comparison.ts`
+
+**의존성**: TASK-024
+
+---
+
 ## 태스크 의존성 다이어그램
 
 ```
@@ -434,3 +461,4 @@ TASK-016 + TASK-014 + TASK-012 + TASK-015
 | 0.1 | 2026-01-01 | 초안 작성 |
 | 0.2 | 2026-02-28 | TASK-024 (상대 수익률 비교 차트) 추가 |
 | 0.3 | 2026-02-28 | TASK-024 완료 (#74) - 버그 수정 포함 |
+| 0.4 | 2026-03-01 | MAINT-012 완료 (#75) - 수익률 비교 기능 개선 |
