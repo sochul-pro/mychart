@@ -259,11 +259,11 @@ export default function ComparePage() {
         </CardHeader>
         <CardContent>
           {isDataLoading ? (
-            <div className="flex h-[400px] items-center justify-center">
+            <div className="flex h-[500px] items-center justify-center">
               <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : dataError ? (
-            <div className="flex h-[400px] flex-col items-center justify-center gap-4">
+            <div className="flex h-[500px] flex-col items-center justify-center gap-4">
               <Alert variant="destructive" className="max-w-md">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
@@ -281,8 +281,8 @@ export default function ComparePage() {
               orderedCodes={visibleSymbols}
               items={items}
               chartType={chartType}
-              height={400}
-              className="min-h-[400px]"
+              height={500}
+              className="min-h-[500px]"
             />
           )}
         </CardContent>
