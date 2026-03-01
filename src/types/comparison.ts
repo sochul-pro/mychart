@@ -14,6 +14,7 @@ export interface ComparisonItem {
   name: string;       // 이름
   type: ComparisonItemType;
   color: string;      // 차트 라인 색상
+  visible: boolean;   // 차트 표시 여부
 }
 
 // 정규화된 데이터 포인트

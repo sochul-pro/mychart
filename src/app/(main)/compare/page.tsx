@@ -24,8 +24,14 @@ export default function ComparePage() {
   const [currentSetId, setCurrentSetId] = useState<string | undefined>();
   const [searchOpen, setSearchOpen] = useState(false);
 
-  // 종목 코드 목록
+  // 종목 코드 목록 (전체)
   const symbols = useMemo(() => items.map((item) => item.code), [items]);
+
+  // 차트에 표시할 종목 코드 목록 (visible이 true인 것만)
+  const visibleSymbols = useMemo(
+    () => items.filter((item) => item.visible).map((item) => item.code),
+    [items]
+  );
 
   // 비교 데이터 조회
   const {
@@ -78,6 +84,7 @@ export default function ComparePage() {
           name,
           type,
           color: getComparisonColor(prev.length),
+          visible: true,
         };
 
         return [...prev, newItem];
@@ -99,6 +106,15 @@ export default function ComparePage() {
       }));
     });
     setCurrentSetId(undefined);
+  }, []);
+
+  // 종목 표시/숨김 토글
+  const handleToggleVisible = useCallback((code: string) => {
+    setItems((prev) =>
+      prev.map((item) =>
+        item.code === code ? { ...item, visible: !item.visible } : item
+      )
+    );
   }, []);
 
   // 기간 변경
@@ -126,6 +142,7 @@ export default function ComparePage() {
         name: isIndex ? indexInfo?.name || code : code,
         type: isIndex ? 'index' : 'stock',
         color: getComparisonColor(index),
+        visible: true,
       };
     });
 
@@ -209,6 +226,7 @@ export default function ComparePage() {
                 data={comparisonData ?? null}
                 items={items}
                 onRemove={handleRemoveItem}
+                onToggleVisible={handleToggleVisible}
               />
             </div>
           )}
@@ -251,7 +269,7 @@ export default function ComparePage() {
           ) : (
             <ComparisonChart
               data={comparisonData ?? null}
-              orderedCodes={symbols}
+              orderedCodes={visibleSymbols}
               height={400}
               className="min-h-[400px]"
             />

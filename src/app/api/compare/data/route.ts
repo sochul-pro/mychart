@@ -134,15 +134,13 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    // 시간축 정렬 - 모든 종목의 데이터가 동일 시간축을 갖도록
-    const aligned = alignTimeSeries(normalizedDatasets);
-
-    // 정렬된 데이터로 items 업데이트
-    aligned.forEach((values, code) => {
-      if (items[code]) {
-        items[code].values = values;
-      }
-    });
+    // 시간축 정렬 (선택적 - 현재 비활성화)
+    // const aligned = alignTimeSeries(normalizedDatasets);
+    // aligned.forEach((values, code) => {
+    //   if (items[code]) {
+    //     items[code].values = values;
+    //   }
+    // });
 
     const response: ComparisonData = {
       period,

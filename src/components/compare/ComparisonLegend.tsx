@@ -2,6 +2,7 @@
 
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import type { ComparisonData, ComparisonItem } from '@/types/comparison';
 import { getComparisonColor } from '@/types/comparison';
 import { formatReturn } from '@/lib/comparison/normalize';
@@ -14,6 +15,8 @@ export interface ComparisonLegendProps {
   items: ComparisonItem[];
   /** 종목 삭제 콜백 */
   onRemove?: (code: string) => void;
+  /** 종목 표시/숨김 토글 콜백 */
+  onToggleVisible?: (code: string) => void;
   /** 클래스명 */
   className?: string;
 }
@@ -27,6 +30,7 @@ export function ComparisonLegend({
   data,
   items,
   onRemove,
+  onToggleVisible,
   className,
 }: ComparisonLegendProps) {
   if (items.length === 0) {
@@ -44,8 +48,20 @@ export function ComparisonLegend({
         return (
           <div
             key={item.code}
-            className="inline-flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-1.5"
+            className={cn(
+              'inline-flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-1.5 transition-opacity',
+              !item.visible && 'opacity-50'
+            )}
           >
+            {/* 표시/숨김 체크박스 */}
+            {onToggleVisible && (
+              <Checkbox
+                checked={item.visible}
+                onCheckedChange={() => onToggleVisible(item.code)}
+                className="h-4 w-4"
+              />
+            )}
+
             {/* 색상 표시 */}
             <div
               className="h-3 w-3 rounded-full"
