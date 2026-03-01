@@ -5,6 +5,9 @@
 // 비교 기간
 export type ComparePeriod = '1M' | '3M' | '6M' | '1Y' | '2Y';
 
+// 차트 타입
+export type ComparisonChartType = 'line' | 'candle';
+
 // 비교 아이템 타입
 export type ComparisonItemType = 'stock' | 'index';
 
@@ -17,17 +20,27 @@ export interface ComparisonItem {
   visible: boolean;   // 차트 표시 여부
 }
 
-// 정규화된 데이터 포인트
+// 정규화된 데이터 포인트 (선차트용)
 export interface NormalizedDataPoint {
   time: number;       // Unix timestamp (초)
   value: number;      // 수익률 (%, 시작점=0)
+}
+
+// 정규화된 OHLC 데이터 포인트 (봉차트용)
+export interface NormalizedOHLCPoint {
+  time: number;       // Unix timestamp (초)
+  open: number;       // 시가 수익률 (%)
+  high: number;       // 고가 수익률 (%)
+  low: number;        // 저가 수익률 (%)
+  close: number;      // 종가 수익률 (%)
 }
 
 // 비교 데이터 응답의 개별 아이템
 export interface ComparisonDataItem {
   name: string;
   type: ComparisonItemType;
-  values: NormalizedDataPoint[];
+  values: NormalizedDataPoint[];       // 선차트용
+  ohlcValues?: NormalizedOHLCPoint[];  // 봉차트용
   currentReturn: number; // 현재 수익률
 }
 
@@ -87,6 +100,12 @@ export const PERIOD_OPTIONS: { value: ComparePeriod; label: string }[] = [
   { value: '6M', label: '6개월' },
   { value: '1Y', label: '1년' },
   { value: '2Y', label: '2년' },
+];
+
+// 차트 타입 옵션 (UI용)
+export const CHART_TYPE_OPTIONS: { value: ComparisonChartType; label: string }[] = [
+  { value: 'line', label: 'Line' },
+  { value: 'candle', label: 'Candle' },
 ];
 
 // 차트 색상 팔레트 (최대 10개)

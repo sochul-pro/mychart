@@ -6,12 +6,18 @@ import {
   IChartApi,
   ISeriesApi,
   LineData,
+  CandlestickData,
   ColorType,
   CrosshairMode,
   Time,
   LineStyle,
 } from 'lightweight-charts';
-import type { ComparisonData, NormalizedDataPoint } from '@/types/comparison';
+import type {
+  ComparisonData,
+  NormalizedDataPoint,
+  NormalizedOHLCPoint,
+  ComparisonChartType,
+} from '@/types/comparison';
 import { getComparisonColor } from '@/types/comparison';
 import { formatReturn } from '@/lib/comparison/normalize';
 
@@ -20,18 +26,58 @@ export interface ComparisonChartProps {
   data: ComparisonData | null;
   /** 종목 코드 순서 (색상 매칭용) */
   orderedCodes: string[];
+  /** 차트 타입 (기본값: 'line') */
+  chartType?: ComparisonChartType;
   /** 차트 높이 (기본값: 400) */
   height?: number;
   /** 클래스명 */
   className?: string;
 }
 
-/** 정규화된 데이터를 Lightweight Charts 형식으로 변환 */
+/** 정규화된 데이터를 Lightweight Charts 선차트 형식으로 변환 */
 function toLineData(data: NormalizedDataPoint[]): LineData<Time>[] {
   return data.map((d) => ({
     time: d.time as Time,
     value: d.value,
   }));
+}
+
+/** 정규화된 OHLC 데이터를 Lightweight Charts 캔들스틱 형식으로 변환 */
+function toCandleData(data: NormalizedOHLCPoint[]): CandlestickData<Time>[] {
+  return data.map((d) => ({
+    time: d.time as Time,
+    open: d.open,
+    high: d.high,
+    low: d.low,
+    close: d.close,
+  }));
+}
+
+/** HEX 색상의 밝기 조정 */
+function adjustColorBrightness(hex: string, factor: number): string {
+  // HEX to RGB
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+
+  // 밝기 조정
+  const adjust = (c: number) => Math.min(255, Math.max(0, Math.round(c * factor)));
+
+  // RGB to HEX
+  const toHex = (c: number) => c.toString(16).padStart(2, '0');
+  return `#${toHex(adjust(r))}${toHex(adjust(g))}${toHex(adjust(b))}`;
+}
+
+/** 종목 색상 기반으로 상승/하락 색상 생성 */
+function getCandleColors(baseColor: string) {
+  return {
+    upColor: adjustColorBrightness(baseColor, 1.2),      // 밝게
+    downColor: adjustColorBrightness(baseColor, 0.6),    // 어둡게
+    borderUpColor: baseColor,
+    borderDownColor: adjustColorBrightness(baseColor, 0.5),
+    wickUpColor: baseColor,
+    wickDownColor: adjustColorBrightness(baseColor, 0.5),
+  };
 }
 
 /**
@@ -42,12 +88,13 @@ function toLineData(data: NormalizedDataPoint[]): LineData<Time>[] {
 export const ComparisonChart = memo(function ComparisonChart({
   data,
   orderedCodes,
+  chartType = 'line',
   height = 400,
   className = '',
 }: ComparisonChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
-  const seriesRefs = useRef<Map<string, ISeriesApi<'Line'>>>(new Map());
+  const seriesRefs = useRef<Map<string, ISeriesApi<'Line' | 'Candlestick'>>>(new Map());
   const baselineSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
 
   // 차트 초기화
@@ -172,31 +219,48 @@ export const ComparisonChart = memo(function ComparisonChart({
     });
     seriesRefs.current.clear();
 
-    // orderedCodes 순서대로 라인 시리즈 새로 생성 (색상 순서 보장)
+    // orderedCodes 순서대로 시리즈 새로 생성 (색상 순서 보장)
     orderedCodes.forEach((code, index) => {
       const item = items[code];
       if (!item) return; // 데이터가 아직 로드되지 않은 경우
 
       const color = getComparisonColor(index);
-      const lineData = toLineData(item.values);
 
-      // 새 시리즈 생성
-      const series = chart.addLineSeries({
-        color,
-        lineWidth: 2,
-        crosshairMarkerVisible: true,
-        crosshairMarkerRadius: 4,
-        priceFormat: {
-          type: 'custom',
-          formatter: (value: number) => formatReturn(value),
-        },
-        lastValueVisible: true,
-        priceLineVisible: false,
-      });
-      seriesRefs.current.set(code, series);
+      if (chartType === 'candle' && item.ohlcValues && item.ohlcValues.length > 0) {
+        // 봉차트 시리즈 생성
+        const candleColors = getCandleColors(color);
+        const candleData = toCandleData(item.ohlcValues);
 
-      // 데이터 설정
-      series.setData(lineData);
+        const series = chart.addCandlestickSeries({
+          ...candleColors,
+          priceFormat: {
+            type: 'custom',
+            formatter: (value: number) => formatReturn(value),
+          },
+          lastValueVisible: true,
+          priceLineVisible: false,
+        });
+        seriesRefs.current.set(code, series);
+        series.setData(candleData);
+      } else {
+        // 선차트 시리즈 생성
+        const lineData = toLineData(item.values);
+
+        const series = chart.addLineSeries({
+          color,
+          lineWidth: 2,
+          crosshairMarkerVisible: true,
+          crosshairMarkerRadius: 4,
+          priceFormat: {
+            type: 'custom',
+            formatter: (value: number) => formatReturn(value),
+          },
+          lastValueVisible: true,
+          priceLineVisible: false,
+        });
+        seriesRefs.current.set(code, series);
+        series.setData(lineData);
+      }
     });
 
     // 기준선 시리즈 데이터를 실제 데이터 범위에 맞게 업데이트
@@ -216,7 +280,7 @@ export const ComparisonChart = memo(function ComparisonChart({
     // 차트 범위 자동 조정
     chart.timeScale().fitContent();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, orderedCodesKey]); // orderedCodesKey는 orderedCodes의 문자열 표현
+  }, [data, orderedCodesKey, chartType]); // orderedCodesKey는 orderedCodes의 문자열 표현
 
   return (
     <div className={`relative ${className}`}>
