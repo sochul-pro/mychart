@@ -3,7 +3,7 @@
  */
 
 // 비교 기간
-export type ComparePeriod = '1M' | '3M' | '6M' | '1Y' | '2Y';
+export type ComparePeriod = '5D' | '10D' | '1M' | '3M' | '6M' | '1Y' | '2Y';
 
 // 차트 타입
 export type ComparisonChartType = 'line' | 'candle';
@@ -86,6 +86,8 @@ export interface IndexInfo {
 
 // 기간별 데이터 개수 (영업일 기준)
 export const PERIOD_LIMITS: Record<ComparePeriod, number> = {
+  '5D': 5,    // 5일 영업일
+  '10D': 10,  // 10일 영업일
   '1M': 22,   // 약 1개월 영업일
   '3M': 65,   // 약 3개월 영업일
   '6M': 130,  // 약 6개월 영업일
@@ -95,6 +97,8 @@ export const PERIOD_LIMITS: Record<ComparePeriod, number> = {
 
 // 기간 옵션 (UI용)
 export const PERIOD_OPTIONS: { value: ComparePeriod; label: string }[] = [
+  { value: '5D', label: '5일' },
+  { value: '10D', label: '10일' },
   { value: '1M', label: '1개월' },
   { value: '3M', label: '3개월' },
   { value: '6M', label: '6개월' },

@@ -150,6 +150,12 @@ export function getStartDateForPeriod(period: ComparePeriod): string {
   let startDate: Date;
 
   switch (period) {
+    case '5D':
+      startDate = new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000);
+      break;
+    case '10D':
+      startDate = new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000);
+      break;
     case '1M':
       startDate = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
       break;
