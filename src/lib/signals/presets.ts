@@ -414,7 +414,7 @@ export const PRESET_STRATEGIES: Record<PresetStrategyId, TradingStrategy> = {
           value: 'sma',
           valueParams: { period: 200 },
         },
-        // 조건 3 & 4: SMA(150) > SMA(200) - 150일선 > 200일선 (200일선 상승 추세)
+        // 조건 3: SMA(150) > SMA(200) - 150일선 > 200일선
         {
           type: 'single',
           indicator: 'sma',
@@ -422,6 +422,15 @@ export const PRESET_STRATEGIES: Record<PresetStrategyId, TradingStrategy> = {
           value: 'sma',
           params: { period: 150 },
           valueParams: { period: 200 },
+        },
+        // 조건 4: SMA(200) > SMA(200, 20일 전) - 200일선 상승 추세 (최소 20거래일)
+        {
+          type: 'single',
+          indicator: 'sma',
+          operator: 'gt',
+          value: 'sma_lagged',
+          params: { period: 200 },
+          valueParams: { period: 200, lag: 20 },
         },
         // 조건 5: SMA(50) > SMA(150) - 50일선 > 150일선
         {

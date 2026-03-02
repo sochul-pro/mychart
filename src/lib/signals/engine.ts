@@ -10,6 +10,12 @@ import type {
   IndicatorCache,
   SignalIndicator,
   ArithmeticExpression,
+  ConditionResult,
+  SingleConditionResult,
+  CrossoverConditionResult,
+  LogicalConditionResult,
+  SignalWithDetails,
+  SignalResultWithDetails,
 } from './types';
 import {
   createIndicatorCache,
@@ -379,6 +385,7 @@ function formatIndicatorOrExpression(
  */
 function formatIndicator(indicator: SignalIndicator, params?: Record<string, number>): string {
   const period = params?.period;
+  const lag = params?.lag;
   const names: Record<SignalIndicator, string> = {
     price: '종가',
     volume: '거래량',
@@ -386,7 +393,9 @@ function formatIndicator(indicator: SignalIndicator, params?: Record<string, num
     high_n: period === 252 ? '52주 최고가' : `${period || 20}일 최고가`,
     low_n: period === 252 ? '52주 최저가' : `${period || 20}일 최저가`,
     sma: `SMA(${period || 20})`,
+    sma_lagged: `SMA(${period || 20}, ${lag || 1}일전)`,
     ema: `EMA(${period || 20})`,
+    ema_lagged: `EMA(${period || 20}, ${lag || 1}일전)`,
     rsi: `RSI(${params?.period || 14})`,
     macd: 'MACD',
     macd_signal: 'MACD Signal',
@@ -412,4 +421,188 @@ function formatOperator(operator: string): string {
     eq: '=',
   };
   return ops[operator] || operator;
+}
+
+// ==========================================
+// 조건 평가 상세 결과 함수들
+// ==========================================
+
+/**
+ * 조건 평가 (상세 결과 포함)
+ * @param condition 평가할 조건
+ * @param data OHLCV 데이터
+ * @param index 평가할 인덱스
+ * @param cache 지표 캐시
+ * @returns 조건 평가 상세 결과
+ */
+export function evaluateConditionWithDetails(
+  condition: Condition,
+  data: OHLCV[],
+  index: number,
+  cache: IndicatorCache
+): ConditionResult {
+  switch (condition.type) {
+    case 'single':
+      return evaluateSingleConditionWithDetails(condition, data, index, cache);
+    case 'crossover':
+      return evaluateCrossoverConditionWithDetails(condition, data, index, cache);
+    case 'and':
+    case 'or':
+      return evaluateLogicalConditionWithDetails(condition, data, index, cache);
+    default:
+      throw new Error('Unknown condition type');
+  }
+}
+
+/**
+ * 단일 조건 평가 (상세 결과)
+ */
+function evaluateSingleConditionWithDetails(
+  condition: SingleCondition,
+  data: OHLCV[],
+  index: number,
+  cache: IndicatorCache
+): SingleConditionResult {
+  // 좌측 값 (지표 또는 산술 표현식)
+  const leftValue = getIndicatorOrExpressionValue(
+    condition.indicator,
+    condition.params,
+    data,
+    index,
+    cache
+  );
+
+  // 우측 값 (숫자, 지표, 또는 산술 표현식)
+  let rightValue: number | null;
+  if (typeof condition.value === 'number') {
+    rightValue = condition.value;
+  } else if (typeof condition.value === 'object' && condition.value.type === 'arithmetic') {
+    rightValue = evaluateArithmeticExpression(condition.value, data, index, cache);
+  } else {
+    const compareParams = condition.valueParams ?? condition.params;
+    const compareValues = getIndicatorValues(data, condition.value as SignalIndicator, compareParams, cache);
+    rightValue = compareValues[index];
+  }
+
+  const satisfied = compare(leftValue, condition.operator, rightValue);
+
+  return {
+    type: 'single',
+    condition,
+    satisfied,
+    leftValue,
+    rightValue,
+  };
+}
+
+/**
+ * 크로스오버 조건 평가 (상세 결과)
+ */
+function evaluateCrossoverConditionWithDetails(
+  condition: CrossoverCondition,
+  data: OHLCV[],
+  index: number,
+  cache: IndicatorCache
+): CrossoverConditionResult {
+  const values1 = getIndicatorValues(data, condition.indicator1, condition.params1, cache);
+  const values2 = getIndicatorValues(data, condition.indicator2, condition.params2, cache);
+
+  let satisfied = false;
+  if (index >= 1) {
+    const crossovers = detectCrossover(values1, values2, condition.direction);
+    satisfied = crossovers[index];
+  }
+
+  return {
+    type: 'crossover',
+    condition,
+    satisfied,
+    indicator1Value: values1[index],
+    indicator2Value: values2[index],
+  };
+}
+
+/**
+ * 논리 조건 평가 (상세 결과)
+ */
+function evaluateLogicalConditionWithDetails(
+  condition: LogicalCondition,
+  data: OHLCV[],
+  index: number,
+  cache: IndicatorCache
+): LogicalConditionResult {
+  const children = condition.conditions.map((c) =>
+    evaluateConditionWithDetails(c, data, index, cache)
+  );
+
+  const satisfied =
+    condition.type === 'and'
+      ? children.every((c) => c.satisfied)
+      : children.some((c) => c.satisfied);
+
+  return {
+    type: condition.type,
+    satisfied,
+    children,
+  };
+}
+
+/**
+ * 전략에 따른 신호 생성 (상세 결과 포함)
+ * @param strategy 매매 전략
+ * @param data OHLCV 데이터
+ * @returns 신호 결과 (상세 조건 결과 포함)
+ */
+export function generateSignalsWithDetails(
+  strategy: TradingStrategy,
+  data: OHLCV[]
+): SignalResultWithDetails {
+  const signals: SignalWithDetails[] = [];
+  const cache = createIndicatorCache();
+
+  // 첫 번째 유효 인덱스 찾기 (충분한 데이터가 있어야 함)
+  const startIndex = Math.max(1, 30); // 최소 30개 데이터 필요
+
+  // 포지션 상태 추적
+  let hasPosition = false;
+
+  for (let i = startIndex; i < data.length; i++) {
+    const buyResult = evaluateConditionWithDetails(strategy.buyCondition, data, i, cache);
+    const sellResult = evaluateConditionWithDetails(strategy.sellCondition, data, i, cache);
+
+    // 같은 날 매수/매도 조건이 모두 충족되면 신호 생성하지 않음
+    if (buyResult.satisfied && sellResult.satisfied) {
+      continue;
+    }
+
+    // 매수 조건 확인 (포지션이 없을 때만)
+    if (buyResult.satisfied && !hasPosition) {
+      signals.push({
+        type: 'buy',
+        time: data[i].time,
+        price: data[i].close,
+        reason: getConditionDescriptionWithValues(strategy.buyCondition, data, i, cache),
+        conditionResult: buyResult,
+      });
+      hasPosition = true;
+    }
+
+    // 매도 조건 확인 (포지션이 있을 때만)
+    if (sellResult.satisfied && hasPosition) {
+      signals.push({
+        type: 'sell',
+        time: data[i].time,
+        price: data[i].close,
+        reason: getConditionDescriptionWithValues(strategy.sellCondition, data, i, cache),
+        conditionResult: sellResult,
+      });
+      hasPosition = false;
+    }
+  }
+
+  return {
+    signals,
+    buyCount: signals.filter((s) => s.type === 'buy').length,
+    sellCount: signals.filter((s) => s.type === 'sell').length,
+  };
 }

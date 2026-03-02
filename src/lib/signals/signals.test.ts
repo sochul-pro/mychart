@@ -295,7 +295,7 @@ describe('Preset Strategies', () => {
 
   it('should return all strategies with getPresetStrategies', () => {
     const strategies = getPresetStrategies();
-    expect(strategies.length).toBe(6);
+    expect(strategies.length).toBe(7);
     expect(strategies.every((s) => s.id && s.name)).toBe(true);
   });
 

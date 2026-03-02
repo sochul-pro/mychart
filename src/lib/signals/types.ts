@@ -22,7 +22,9 @@ export type SignalIndicator =
   | 'high_n'
   | 'low_n'
   | 'sma'
+  | 'sma_lagged' // N일 전 SMA 값
   | 'ema'
+  | 'ema_lagged' // N일 전 EMA 값
   | 'rsi'
   | 'macd'
   | 'macd_signal'
@@ -82,7 +84,9 @@ export interface TradingStrategy {
 /** 지표 계산 결과 캐시 */
 export interface IndicatorCache {
   sma: Map<number, (number | null)[]>; // key: period
+  sma_lagged: Map<string, (number | null)[]>; // key: "period-lag"
   ema: Map<number, (number | null)[]>;
+  ema_lagged: Map<string, (number | null)[]>; // key: "period-lag"
   rsi: Map<number, (number | null)[]>;
   macd: Map<string, { macd: (number | null)[]; signal: (number | null)[]; histogram: (number | null)[] }>;
   stochastic: Map<string, { k: (number | null)[]; d: (number | null)[] }>;
@@ -105,6 +109,53 @@ export type PresetStrategyId =
 /** 신호 생성 결과 */
 export interface SignalResult {
   signals: Signal[];
+  buyCount: number;
+  sellCount: number;
+}
+
+// ==========================================
+// 조건 평가 결과 타입 (상세 분석용)
+// ==========================================
+
+/** 단일 조건 평가 결과 */
+export interface SingleConditionResult {
+  type: 'single';
+  condition: SingleCondition;
+  satisfied: boolean;
+  leftValue: number | null; // 좌측 지표 실제 값
+  rightValue: number | null; // 우측 비교 값
+}
+
+/** 크로스오버 조건 평가 결과 */
+export interface CrossoverConditionResult {
+  type: 'crossover';
+  condition: CrossoverCondition;
+  satisfied: boolean;
+  indicator1Value: number | null;
+  indicator2Value: number | null;
+}
+
+/** 논리 조건 평가 결과 */
+export interface LogicalConditionResult {
+  type: 'and' | 'or';
+  satisfied: boolean;
+  children: ConditionResult[];
+}
+
+/** 조건 평가 결과 유니온 */
+export type ConditionResult =
+  | SingleConditionResult
+  | CrossoverConditionResult
+  | LogicalConditionResult;
+
+/** 상세 정보를 포함한 매매 신호 */
+export interface SignalWithDetails extends Signal {
+  conditionResult: ConditionResult;
+}
+
+/** 상세 정보를 포함한 신호 생성 결과 */
+export interface SignalResultWithDetails {
+  signals: SignalWithDetails[];
   buyCount: number;
   sellCount: number;
 }

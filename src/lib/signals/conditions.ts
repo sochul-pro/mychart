@@ -13,7 +13,9 @@ import { sma, ema, rsi, macd, stochastic, bollingerBands } from '@/lib/indicator
 export function createIndicatorCache(): IndicatorCache {
   return {
     sma: new Map(),
+    sma_lagged: new Map(),
     ema: new Map(),
+    ema_lagged: new Map(),
     rsi: new Map(),
     macd: new Map(),
     stochastic: new Map(),
@@ -107,12 +109,56 @@ export function getIndicatorValues(
       return cache.sma.get(period)!;
     }
 
+    case 'sma_lagged': {
+      const period = mergedParams.period || 20;
+      const lag = mergedParams.lag || 1;
+      const key = `${period}-${lag}`;
+
+      if (!cache.sma_lagged.has(key)) {
+        // 기존 SMA 캐시 재사용
+        if (!cache.sma.has(period)) {
+          cache.sma.set(period, sma(data, period));
+        }
+        const smaValues = cache.sma.get(period)!;
+
+        // lag 적용: 각 인덱스에서 lag만큼 이전 값 반환
+        const laggedValues: (number | null)[] = new Array(data.length).fill(null);
+        for (let i = lag; i < data.length; i++) {
+          laggedValues[i] = smaValues[i - lag];
+        }
+        cache.sma_lagged.set(key, laggedValues);
+      }
+      return cache.sma_lagged.get(key)!;
+    }
+
     case 'ema': {
       const period = mergedParams.period || 20;
       if (!cache.ema.has(period)) {
         cache.ema.set(period, ema(data, period));
       }
       return cache.ema.get(period)!;
+    }
+
+    case 'ema_lagged': {
+      const period = mergedParams.period || 20;
+      const lag = mergedParams.lag || 1;
+      const key = `${period}-${lag}`;
+
+      if (!cache.ema_lagged.has(key)) {
+        // 기존 EMA 캐시 재사용
+        if (!cache.ema.has(period)) {
+          cache.ema.set(period, ema(data, period));
+        }
+        const emaValues = cache.ema.get(period)!;
+
+        // lag 적용
+        const laggedValues: (number | null)[] = new Array(data.length).fill(null);
+        for (let i = lag; i < data.length; i++) {
+          laggedValues[i] = emaValues[i - lag];
+        }
+        cache.ema_lagged.set(key, laggedValues);
+      }
+      return cache.ema_lagged.get(key)!;
     }
 
     case 'rsi': {
@@ -188,6 +234,9 @@ function getDefaultParams(indicator: SignalIndicator): Record<string, number> {
     case 'high_n':
     case 'low_n':
       return { period: 20 };
+    case 'sma_lagged':
+    case 'ema_lagged':
+      return { period: 20, lag: 1 };
     case 'rsi':
       return { period: 14 };
     case 'macd':
