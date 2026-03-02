@@ -109,8 +109,10 @@ export function TradeHistoryTable({ trades }: TradeHistoryTableProps) {
                   진입일 <SortIcon column="entryTime" />
                 </TableHead>
                 <TableHead>진입가</TableHead>
+                <TableHead>매수 이유</TableHead>
                 <TableHead>청산일</TableHead>
                 <TableHead>청산가</TableHead>
+                <TableHead>청산 이유</TableHead>
                 <TableHead
                   className="cursor-pointer hover:text-foreground text-right"
                   onClick={() => handleSort('returnPct')}
@@ -144,11 +146,31 @@ export function TradeHistoryTable({ trades }: TradeHistoryTableProps) {
                     <TableCell className="text-muted-foreground">{index + 1}</TableCell>
                     <TableCell>{formatDate(trade.entryTime)}</TableCell>
                     <TableCell>{formatPrice(trade.entryPrice)}원</TableCell>
+                    <TableCell className="max-w-[200px]">
+                      <span
+                        className="text-xs text-muted-foreground line-clamp-2"
+                        title={trade.entryReason}
+                      >
+                        {trade.entryReason || '-'}
+                      </span>
+                    </TableCell>
                     <TableCell>
                       {trade.exitTime ? formatDate(trade.exitTime) : '-'}
                     </TableCell>
                     <TableCell>
                       {trade.exitPrice ? `${formatPrice(trade.exitPrice)}원` : '-'}
+                    </TableCell>
+                    <TableCell className="max-w-[200px]">
+                      <span
+                        className={`text-xs line-clamp-2 ${
+                          trade.exitReason === '기간 종료'
+                            ? 'text-orange-500 font-medium'
+                            : 'text-muted-foreground'
+                        }`}
+                        title={trade.exitReason}
+                      >
+                        {trade.exitReason || '-'}
+                      </span>
                     </TableCell>
                     <TableCell className="text-right">
                       {trade.returnPct !== undefined ? (
