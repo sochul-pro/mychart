@@ -509,6 +509,286 @@ export const PRESET_STRATEGIES: Record<PresetStrategyId, TradingStrategy> = {
       ],
     },
   },
+
+  // 전략 8: 미너비니 수정 (5일선 10일선 골든크로스 추가)
+  // 기존 미너비니 조건 + 단기 모멘텀 확인
+  minervini_modified: {
+    id: 'minervini_modified',
+    name: '미너비니_수정',
+    description: '미너비니 8가지 조건 + 5일선이 10일선 상향돌파 시 매수',
+    buyCondition: {
+      type: 'and',
+      conditions: [
+        // 조건 1: Price > SMA(150)
+        {
+          type: 'single',
+          indicator: 'price',
+          operator: 'gt',
+          value: 'sma',
+          valueParams: { period: 150 },
+        },
+        // 조건 2: Price > SMA(200)
+        {
+          type: 'single',
+          indicator: 'price',
+          operator: 'gt',
+          value: 'sma',
+          valueParams: { period: 200 },
+        },
+        // 조건 3: SMA(150) > SMA(200)
+        {
+          type: 'single',
+          indicator: 'sma',
+          operator: 'gt',
+          value: 'sma',
+          params: { period: 150 },
+          valueParams: { period: 200 },
+        },
+        // 조건 4: SMA(200) > SMA(200, 20일 전) - 200일선 상승 추세
+        {
+          type: 'single',
+          indicator: 'sma',
+          operator: 'gt',
+          value: 'sma_lagged',
+          params: { period: 200 },
+          valueParams: { period: 200, lag: 20 },
+        },
+        // 조건 5: SMA(50) > SMA(150)
+        {
+          type: 'single',
+          indicator: 'sma',
+          operator: 'gt',
+          value: 'sma',
+          params: { period: 50 },
+          valueParams: { period: 150 },
+        },
+        // 조건 6: Price > SMA(50)
+        {
+          type: 'single',
+          indicator: 'price',
+          operator: 'gt',
+          value: 'sma',
+          valueParams: { period: 50 },
+        },
+        // 조건 7: Price > Low_52W * 1.3
+        {
+          type: 'single',
+          indicator: 'price',
+          operator: 'gt',
+          value: {
+            type: 'arithmetic',
+            left: 'low_n',
+            operator: 'mul',
+            right: 1.3,
+            leftParams: { period: 252 },
+          },
+        },
+        // 조건 8: Price >= High_52W * 0.75
+        {
+          type: 'single',
+          indicator: 'price',
+          operator: 'gte',
+          value: {
+            type: 'arithmetic',
+            left: 'high_n',
+            operator: 'mul',
+            right: 0.75,
+            leftParams: { period: 252 },
+          },
+        },
+        // 조건 9 (추가): SMA(5) cross_above SMA(10) - 5일선이 10일선 상향돌파
+        {
+          type: 'crossover',
+          indicator1: 'sma',
+          indicator2: 'sma',
+          direction: 'up',
+          params1: { period: 5 },
+          params2: { period: 10 },
+        },
+      ],
+    },
+    sellCondition: {
+      type: 'or',
+      conditions: [
+        // Price < SMA(50)
+        {
+          type: 'single',
+          indicator: 'price',
+          operator: 'lt',
+          value: 'sma',
+          valueParams: { period: 50 },
+        },
+        // SMA(50) cross_below SMA(150)
+        {
+          type: 'crossover',
+          indicator1: 'sma',
+          indicator2: 'sma',
+          direction: 'down',
+          params1: { period: 50 },
+          params2: { period: 150 },
+        },
+        // SMA(150) cross_below SMA(200)
+        {
+          type: 'crossover',
+          indicator1: 'sma',
+          indicator2: 'sma',
+          direction: 'down',
+          params1: { period: 150 },
+          params2: { period: 200 },
+        },
+      ],
+    },
+  },
+
+  // 전략 9: 미너비니 한국형
+  // 한국 시장에 맞게 이동평균 기간 조정 + 거래량 조건 추가
+  minervini_korea: {
+    id: 'minervini_korea',
+    name: '미너비니_한국형',
+    description: '한국 시장 맞춤: 20/60/120일선 + 거래량 1.5배 + RSI 필터',
+    buyCondition: {
+      type: 'and',
+      conditions: [
+        // 조건 1: Price > SMA(60) - 중기 추세 상방
+        {
+          type: 'single',
+          indicator: 'price',
+          operator: 'gt',
+          value: 'sma',
+          valueParams: { period: 60 },
+        },
+        // 조건 2: Price > SMA(120) - 장기 추세 상방
+        {
+          type: 'single',
+          indicator: 'price',
+          operator: 'gt',
+          value: 'sma',
+          valueParams: { period: 120 },
+        },
+        // 조건 3: SMA(60) > SMA(120) - 정배열
+        {
+          type: 'single',
+          indicator: 'sma',
+          operator: 'gt',
+          value: 'sma',
+          params: { period: 60 },
+          valueParams: { period: 120 },
+        },
+        // 조건 4: SMA(20) > SMA(60) - 단기 정배열
+        {
+          type: 'single',
+          indicator: 'sma',
+          operator: 'gt',
+          value: 'sma',
+          params: { period: 20 },
+          valueParams: { period: 60 },
+        },
+        // 조건 5: Price > SMA(20) - 단기 추세 상방
+        {
+          type: 'single',
+          indicator: 'price',
+          operator: 'gt',
+          value: 'sma',
+          valueParams: { period: 20 },
+        },
+        // 조건 6: Price > 120일 최저가 * 1.25 - 저점 대비 25% 이상
+        {
+          type: 'single',
+          indicator: 'price',
+          operator: 'gt',
+          value: {
+            type: 'arithmetic',
+            left: 'low_n',
+            operator: 'mul',
+            right: 1.25,
+            leftParams: { period: 120 },
+          },
+        },
+        // 조건 7: Price >= 120일 최고가 * 0.80 - 고점 근접 (80% 이내)
+        {
+          type: 'single',
+          indicator: 'price',
+          operator: 'gte',
+          value: {
+            type: 'arithmetic',
+            left: 'high_n',
+            operator: 'mul',
+            right: 0.80,
+            leftParams: { period: 120 },
+          },
+        },
+        // 조건 8: Volume > Volume_MA(20) * 1.5 - 평균 거래량 1.5배 이상
+        {
+          type: 'single',
+          indicator: 'volume',
+          operator: 'gt',
+          value: {
+            type: 'arithmetic',
+            left: 'volume_ma',
+            operator: 'mul',
+            right: 1.5,
+            leftParams: { period: 20 },
+          },
+        },
+        // 조건 9: RSI < 70 - 과매수 회피
+        {
+          type: 'single',
+          indicator: 'rsi',
+          operator: 'lt',
+          value: 70,
+          params: { period: 14 },
+        },
+        // 조건 10: SMA(5) cross_above SMA(10) - 단기 골든크로스
+        {
+          type: 'crossover',
+          indicator1: 'sma',
+          indicator2: 'sma',
+          direction: 'up',
+          params1: { period: 5 },
+          params2: { period: 10 },
+        },
+      ],
+    },
+    sellCondition: {
+      type: 'or',
+      conditions: [
+        // Price < SMA(20) - 단기 추세 이탈
+        {
+          type: 'single',
+          indicator: 'price',
+          operator: 'lt',
+          value: 'sma',
+          valueParams: { period: 20 },
+        },
+        // SMA(20) cross_below SMA(60) - 단중기 데드크로스
+        {
+          type: 'crossover',
+          indicator1: 'sma',
+          indicator2: 'sma',
+          direction: 'down',
+          params1: { period: 20 },
+          params2: { period: 60 },
+        },
+        // SMA(60) cross_below SMA(120) - 중장기 데드크로스
+        {
+          type: 'crossover',
+          indicator1: 'sma',
+          indicator2: 'sma',
+          direction: 'down',
+          params1: { period: 60 },
+          params2: { period: 120 },
+        },
+        // RSI > 75 - 과매수 청산
+        {
+          type: 'single',
+          indicator: 'rsi',
+          operator: 'gt',
+          value: 75,
+          params: { period: 14 },
+        },
+      ],
+    },
+  },
 };
 
 /**

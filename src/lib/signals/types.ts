@@ -104,7 +104,9 @@ export type PresetStrategyId =
   | 'ma_pullback'
   | 'bollinger_pullback'
   | 'macd_pullback'
-  | 'minervini_trend';
+  | 'minervini_trend'
+  | 'minervini_modified'
+  | 'minervini_korea';
 
 /** 신호 생성 결과 */
 export interface SignalResult {

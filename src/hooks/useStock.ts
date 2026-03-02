@@ -93,7 +93,7 @@ export function useStock(symbolOrOptions: string | UseStockWithTimeFrameOptions)
     enabled: !!symbol,
   });
 
-  const ohlcvQuery = useStockOHLCV({ symbol, timeFrame, limit: 252 });
+  const ohlcvQuery = useStockOHLCV({ symbol, timeFrame, limit: 300 });
 
   return {
     info: stockQuery.data?.info as StockInfo | null,
