@@ -141,6 +141,13 @@ export function StockChartWithIndicators({
   // 동기화 관련 refs
   const isSyncingRef = useRef(false);
   const isDisposedRef = useRef(false);
+  const isCrosshairSyncingRef = useRef(false);
+
+  // 크로스헤어 동기화용: 시간(초) → 해당 시점 시리즈값 lookup
+  const candleValuesRef = useRef<Map<number, number>>(new Map());
+  const rsiValuesRef = useRef<Map<number, number>>(new Map());
+  const macdValuesRef = useRef<Map<number, number>>(new Map());
+  const stochasticValuesRef = useRef<Map<number, number>>(new Map());
 
   // 호버된 신호 정보 상태
   const [hoveredSignals, setHoveredSignals] = useState<SignalMarker[]>([]);
@@ -201,6 +208,56 @@ export function StockChartWithIndicators({
     } finally {
       requestAnimationFrame(() => {
         isSyncingRef.current = false;
+      });
+    }
+  }, []);
+
+  // 크로스헤어 동기화 함수
+  // sourceTime이 undefined면 모든 차트의 크로스헤어 제거
+  // sourceTime이 있으면 각 차트에 해당 시점의 시리즈값으로 크로스헤어 위치 설정
+  const syncCrosshair = useCallback((sourceTime: number | undefined) => {
+    if (isDisposedRef.current || isCrosshairSyncingRef.current) return;
+
+    isCrosshairSyncingRef.current = true;
+    try {
+      if (sourceTime === undefined) {
+        mainChartRef.current?.clearCrosshairPosition();
+        rsiChartRef.current?.clearCrosshairPosition();
+        macdChartRef.current?.clearCrosshairPosition();
+        stochasticChartRef.current?.clearCrosshairPosition();
+        return;
+      }
+
+      const time = sourceTime as Time;
+
+      const candleSeries = seriesRefs.current.get('candle');
+      const candlePrice = candleValuesRef.current.get(sourceTime);
+      if (mainChartRef.current && candleSeries && candlePrice !== undefined) {
+        mainChartRef.current.setCrosshairPosition(candlePrice, time, candleSeries);
+      }
+
+      const rsiSeries = seriesRefs.current.get('rsi');
+      const rsiVal = rsiValuesRef.current.get(sourceTime);
+      if (rsiChartRef.current && rsiSeries && rsiVal !== undefined) {
+        rsiChartRef.current.setCrosshairPosition(rsiVal, time, rsiSeries);
+      }
+
+      const macdLine = seriesRefs.current.get('macd-line');
+      const macdVal = macdValuesRef.current.get(sourceTime);
+      if (macdChartRef.current && macdLine && macdVal !== undefined) {
+        macdChartRef.current.setCrosshairPosition(macdVal, time, macdLine);
+      }
+
+      const stochK = seriesRefs.current.get('stochastic-k');
+      const stochVal = stochasticValuesRef.current.get(sourceTime);
+      if (stochasticChartRef.current && stochK && stochVal !== undefined) {
+        stochasticChartRef.current.setCrosshairPosition(stochVal, time, stochK);
+      }
+    } catch {
+      // 차트가 disposed 상태일 수 있음 - 무시
+    } finally {
+      requestAnimationFrame(() => {
+        isCrosshairSyncingRef.current = false;
       });
     }
   }, []);
@@ -296,8 +353,15 @@ export function StockChartWithIndicators({
       syncChartsFromMain();
     });
 
-    // 크로스헤어 이동 이벤트 (신호 툴팁용)
+    // 크로스헤어 이동 이벤트 (신호 툴팁 + 서브차트 동기화)
     chart.subscribeCrosshairMove((param) => {
+      // 다른 차트에서 sync 호출로 발생한 이벤트는 무시 (무한 루프 방지)
+      if (isCrosshairSyncingRef.current) return;
+
+      // 서브차트 크로스헤어 동기화
+      const syncTime = param.time as number | undefined;
+      syncCrosshair(syncTime);
+
       if (!param.time || !param.point || param.point.x < 0 || param.point.y < 0) {
         setHoveredSignals([]);
         setTooltipPosition(null);
@@ -340,7 +404,7 @@ export function StockChartWithIndicators({
       mainChartRef.current = null;
       currentSeriesRefs.clear();
     };
-  }, [height, showVolume, upColor, downColor, syncChartsFromMain]);
+  }, [height, showVolume, upColor, downColor, syncChartsFromMain, syncCrosshair]);
 
   // RSI 서브차트
   useEffect(() => {
@@ -385,6 +449,12 @@ export function StockChartWithIndicators({
       syncMainFromSubChart(range);
     });
 
+    // 크로스헤어 동기화 (RSI → 다른 차트)
+    chart.subscribeCrosshairMove((param) => {
+      if (isCrosshairSyncingRef.current) return;
+      syncCrosshair(param.time as number | undefined);
+    });
+
     // 초기 동기화
     if (mainChartRef.current) {
       const logicalRange = mainChartRef.current.timeScale().getVisibleLogicalRange();
@@ -408,7 +478,7 @@ export function StockChartWithIndicators({
       rsiChartRef.current = null;
       currentSeriesRefs.delete('rsi');
     };
-  }, [hasRSI, subChartHeight, syncMainFromSubChart]);
+  }, [hasRSI, subChartHeight, syncMainFromSubChart, syncCrosshair]);
 
   // MACD 서브차트
   useEffect(() => {
@@ -463,6 +533,12 @@ export function StockChartWithIndicators({
       syncMainFromSubChart(range);
     });
 
+    // 크로스헤어 동기화 (MACD → 다른 차트)
+    chart.subscribeCrosshairMove((param) => {
+      if (isCrosshairSyncingRef.current) return;
+      syncCrosshair(param.time as number | undefined);
+    });
+
     // 초기 동기화
     if (mainChartRef.current) {
       const logicalRange = mainChartRef.current.timeScale().getVisibleLogicalRange();
@@ -488,7 +564,7 @@ export function StockChartWithIndicators({
       currentSeriesRefs.delete('macd-signal');
       currentSeriesRefs.delete('macd-histogram');
     };
-  }, [hasMACD, subChartHeight, syncMainFromSubChart]);
+  }, [hasMACD, subChartHeight, syncMainFromSubChart, syncCrosshair]);
 
   // Stochastic 서브차트
   useEffect(() => {
@@ -541,6 +617,12 @@ export function StockChartWithIndicators({
       syncMainFromSubChart(range);
     });
 
+    // 크로스헤어 동기화 (Stochastic → 다른 차트)
+    chart.subscribeCrosshairMove((param) => {
+      if (isCrosshairSyncingRef.current) return;
+      syncCrosshair(param.time as number | undefined);
+    });
+
     // 초기 동기화
     if (mainChartRef.current) {
       const logicalRange = mainChartRef.current.timeScale().getVisibleLogicalRange();
@@ -565,7 +647,7 @@ export function StockChartWithIndicators({
       currentSeriesRefs.delete('stochastic-k');
       currentSeriesRefs.delete('stochastic-d');
     };
-  }, [hasStochastic, subChartHeight, syncMainFromSubChart]);
+  }, [hasStochastic, subChartHeight, syncMainFromSubChart, syncCrosshair]);
 
   // 시리즈 제거 함수
   const removeOverlaySeries = useCallback((seriesKey: string) => {
@@ -706,6 +788,12 @@ export function StockChartWithIndicators({
       (candleSeries as ISeriesApi<'Candlestick'>).setMarkers(markers);
     }
 
+    // 크로스헤어 동기화용 lookup map 갱신 (시간 초 → close 가격)
+    candleValuesRef.current.clear();
+    for (const d of data) {
+      candleValuesRef.current.set(d.time / 1000, d.close);
+    }
+
     // 거래량 데이터
     const volumeSeries = seriesRefs.current.get('volume');
     if (volumeSeries) {
@@ -726,16 +814,23 @@ export function StockChartWithIndicators({
 
     // RSI 업데이트
     const rsiConfig = enabledIndicators.find((i) => i.type === 'rsi') as RSIConfig | undefined;
+    rsiValuesRef.current.clear();
     if (rsiConfig) {
       const rsiSeries = seriesRefs.current.get('rsi');
       if (rsiSeries) {
         const rsiValues = rsi(data, rsiConfig.period);
         (rsiSeries as ISeriesApi<'Line'>).setData(toLineData(data, rsiValues));
+        for (let i = 0; i < data.length; i++) {
+          if (rsiValues[i] !== null) {
+            rsiValuesRef.current.set(data[i].time / 1000, rsiValues[i]!);
+          }
+        }
       }
     }
 
     // MACD 업데이트
     const macdConfig = enabledIndicators.find((i) => i.type === 'macd') as MACDConfig | undefined;
+    macdValuesRef.current.clear();
     if (macdConfig) {
       const macdResult = macd(
         data,
@@ -750,6 +845,11 @@ export function StockChartWithIndicators({
 
       if (macdLineSeries) {
         (macdLineSeries as ISeriesApi<'Line'>).setData(toLineData(data, macdResult.macd));
+        for (let i = 0; i < data.length; i++) {
+          if (macdResult.macd[i] !== null) {
+            macdValuesRef.current.set(data[i].time / 1000, macdResult.macd[i]!);
+          }
+        }
       }
       if (signalLineSeries) {
         (signalLineSeries as ISeriesApi<'Line'>).setData(toLineData(data, macdResult.signal));
@@ -771,6 +871,7 @@ export function StockChartWithIndicators({
 
     // Stochastic 업데이트
     const stochasticConfig = enabledIndicators.find((i) => i.type === 'stochastic') as StochasticConfig | undefined;
+    stochasticValuesRef.current.clear();
     if (stochasticConfig) {
       const stochasticResult = stochastic(
         data,
@@ -783,6 +884,11 @@ export function StockChartWithIndicators({
 
       if (kSeries) {
         (kSeries as ISeriesApi<'Line'>).setData(toLineData(data, stochasticResult.k));
+        for (let i = 0; i < data.length; i++) {
+          if (stochasticResult.k[i] !== null) {
+            stochasticValuesRef.current.set(data[i].time / 1000, stochasticResult.k[i]!);
+          }
+        }
       }
       if (dSeries) {
         (dSeries as ISeriesApi<'Line'>).setData(toLineData(data, stochasticResult.d));
