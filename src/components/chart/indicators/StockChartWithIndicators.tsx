@@ -252,6 +252,7 @@ export function StockChartWithIndicators({
       rightPriceScale: {
         borderColor: '#e0e0e0',
         scaleMargins: { top: 0.1, bottom: showVolume ? 0.25 : 0.1 },
+        minimumWidth: 90,
       },
       timeScale: { borderColor: '#e0e0e0', timeVisible: true, fixRightEdge: true },
       localization: {
@@ -259,6 +260,7 @@ export function StockChartWithIndicators({
           const date = new Date(time * 1000);
           return date.toISOString().slice(0, 10);
         },
+        priceFormatter: (price: number) => Math.round(price).toLocaleString('ko-KR'),
       },
     });
 
@@ -365,6 +367,7 @@ export function StockChartWithIndicators({
       rightPriceScale: {
         borderColor: '#e0e0e0',
         scaleMargins: { top: 0.1, bottom: 0.1 },
+        minimumWidth: 90,
       },
       timeScale: { visible: false, fixRightEdge: true },
     });
@@ -432,6 +435,7 @@ export function StockChartWithIndicators({
       rightPriceScale: {
         borderColor: '#e0e0e0',
         scaleMargins: { top: 0.1, bottom: 0.1 },
+        minimumWidth: 90,
       },
       timeScale: { visible: false, fixRightEdge: true },
     });
@@ -511,6 +515,7 @@ export function StockChartWithIndicators({
       rightPriceScale: {
         borderColor: '#e0e0e0',
         scaleMargins: { top: 0.1, bottom: 0.1 },
+        minimumWidth: 90,
       },
       timeScale: { visible: false, fixRightEdge: true },
     });
