@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { TrendingUp, Star, Newspaper, ArrowUp, ArrowDown } from 'lucide-react';
+import { StockContextMenu } from '@/components/stock/StockContextMenu';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -119,7 +120,9 @@ export default function DashboardPage() {
                     className="flex items-center justify-between p-2 hover:bg-muted/50 rounded-lg"
                   >
                     <div>
-                      <p className="font-medium text-sm">{stock.name}</p>
+                      <StockContextMenu symbol={stock.symbol} name={stock.name}>
+                        <p className="font-medium text-sm cursor-context-menu">{stock.name}</p>
+                      </StockContextMenu>
                       <p className="text-xs text-muted-foreground">{stock.symbol}</p>
                     </div>
                     <div className="text-right">
@@ -185,7 +188,9 @@ export default function DashboardPage() {
                         {index + 1}
                       </span>
                       <div>
-                        <p className="font-medium text-sm">{result.name}</p>
+                        <StockContextMenu symbol={result.symbol} name={result.name}>
+                          <p className="font-medium text-sm cursor-context-menu">{result.name}</p>
+                        </StockContextMenu>
                         <p className="text-xs text-muted-foreground">
                           {result.symbol}
                         </p>

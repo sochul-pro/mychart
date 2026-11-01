@@ -3,6 +3,7 @@
 import { memo } from 'react';
 import Link from 'next/link';
 import { Star, ArrowUp, ArrowDown, ExternalLink } from 'lucide-react';
+import { StockContextMenu } from '@/components/stock/StockContextMenu';
 import {
   Dialog,
   DialogContent,
@@ -140,7 +141,9 @@ export const ThemeDetailModal = memo(function ThemeDetailModal({
                             {index + 1}
                           </span>
                           <div>
-                            <span className="font-medium">{stock.name}</span>
+                            <StockContextMenu symbol={stock.symbol} name={stock.name}>
+                              <span className="font-medium cursor-context-menu">{stock.name}</span>
+                            </StockContextMenu>
                             <span className="text-xs text-muted-foreground ml-2">
                               {stock.symbol}
                             </span>

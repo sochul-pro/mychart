@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ArrowUp, ArrowDown, TrendingUp, Users, Banknote, RefreshCw, Eye } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { StockContextMenu } from '@/components/stock/StockContextMenu';
 import type { LeaderStock } from '@/types';
 
 interface ScreenerTableProps {
@@ -64,7 +65,9 @@ export const ScreenerTable = memo(function ScreenerTable({
                   href={`/stocks/${result.symbol}`}
                   className="block hover:underline"
                 >
-                  <div className="font-medium">{result.name}</div>
+                  <StockContextMenu symbol={result.symbol} name={result.name}>
+                    <div className="font-medium cursor-context-menu">{result.name}</div>
+                  </StockContextMenu>
                   <div className="text-xs text-muted-foreground">
                     {result.symbol} · {result.market}
                   </div>
