@@ -11,9 +11,11 @@ import { useChartSettings } from '@/hooks/useChartSettings';
 import { useSignalPresets } from '@/hooks/useSignalPresets';
 import { cn } from '@/lib/utils';
 import { useDebouncedCallback } from 'use-debounce';
-import { generateSignals } from '@/lib/signals/engine';
+import { generateSignalsWithDetails } from '@/lib/signals/engine';
+import { SignalDetailPopup } from '@/components/signals/SignalDetailPopup';
 import type { IndicatorConfig } from '@/components/chart/indicators/types';
 import type { SignalMarker } from '@/components/chart/indicators/StockChartWithIndicators';
+import type { SignalWithDetails } from '@/lib/signals/types';
 import type { OHLCV, TimeFrame } from '@/types';
 
 interface StockChartCardProps {
@@ -37,6 +39,12 @@ export function StockChartCard({
   const [localIndicators, setLocalIndicators] = useState<IndicatorConfig[] | null>(null);
   const [selectedStrategies, setSelectedStrategies] = useState<SelectedStrategy[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
+
+  // 신호 상세 팝업 상태
+  const [selectedSignal, setSelectedSignal] = useState<{
+    signal: SignalWithDetails;
+    strategyName: string;
+  } | null>(null);
 
   const indicators = localIndicators ?? settings.indicators;
 
@@ -93,8 +101,8 @@ export function StockChartCard({
         sellCondition: strategy.sellRules,
       };
 
-      // 신호 생성
-      const result = generateSignals(tradingStrategy, ohlcv);
+      // 신호 생성 (상세 결과 포함)
+      const result = generateSignalsWithDetails(tradingStrategy, ohlcv);
 
       // 스타일 설정
       const styleSet = STRATEGY_STYLES.find((c) => c.buy === strategy.color) || STRATEGY_STYLES[0];
@@ -109,12 +117,29 @@ export function StockChartCard({
           strategyName: strategy.name,
           reason: signal.reason,
           price: signal.price,
+          conditionResult: signal.conditionResult,
         });
       }
     }
 
     return allMarkers;
   }, [ohlcv, selectedStrategies]);
+
+  // 신호 클릭 핸들러
+  const handleSignalClick = useCallback((marker: SignalMarker) => {
+    if (marker.conditionResult) {
+      setSelectedSignal({
+        signal: {
+          type: marker.type,
+          time: marker.time,
+          price: marker.price || 0,
+          reason: marker.reason || '',
+          conditionResult: marker.conditionResult,
+        },
+        strategyName: marker.strategyName,
+      });
+    }
+  }, []);
 
   const debouncedSaveIndicators = useDebouncedCallback((newIndicators: IndicatorConfig[]) => {
     updateIndicators(newIndicators);
@@ -191,6 +216,7 @@ export function StockChartCard({
             showVolume={true}
             timeFrame={timeFrame}
             onTimeFrameChange={onTimeFrameChange}
+            onSignalClick={handleSignalClick}
           />
         ) : (
           <div
@@ -200,6 +226,14 @@ export function StockChartCard({
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         )}
+
+        {/* 신호 상세 팝업 */}
+        <SignalDetailPopup
+          signal={selectedSignal?.signal || null}
+          strategyName={selectedSignal?.strategyName}
+          isOpen={!!selectedSignal}
+          onClose={() => setSelectedSignal(null)}
+        />
       </CardContent>
     </Card>
   );
