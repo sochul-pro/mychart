@@ -215,6 +215,7 @@ function formatIndicator(
   const lag = params?.lag;
   const names: Record<SignalIndicator, string> = {
     price: '종가',
+    open: '시가',
     volume: '거래량',
     volume_ma: `거래량MA(${period || 20})`,
     high_n: period === 252 ? '52주최고' : `${period || 20}일최고`,
