@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { MoreHorizontal, Trash2, FileText, Loader2 } from 'lucide-react';
+import { StockContextMenu } from '@/components/stock/StockContextMenu';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -81,7 +82,9 @@ export function WatchlistItemRow({ item, onUpdate, onDelete }: WatchlistItemRowP
       >
         {/* 종목명 + 코드 */}
         <div className="min-w-0">
-          <span className="font-medium truncate block">{displayName}</span>
+          <StockContextMenu symbol={item.symbol} name={item.name}>
+            <span className="font-medium truncate block cursor-context-menu">{displayName}</span>
+          </StockContextMenu>
           <span className="text-xs text-muted-foreground">{item.symbol.slice(-6)}</span>
         </div>
 

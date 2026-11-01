@@ -4,6 +4,7 @@ import { ArrowUp, ArrowDown } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { StockContextMenu } from '@/components/stock/StockContextMenu';
 import type { StockInfo, Quote } from '@/types';
 
 function formatMarketCap(value: number): string {
@@ -45,12 +46,14 @@ export function StockQuoteCard({ info, quote, rightContent, compact = false }: S
             <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
               <div>
                 <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                  <h2 className={cn(
-                    'font-bold',
-                    compact ? 'text-lg' : 'text-xl sm:text-2xl'
-                  )}>
-                    {normalizeStockName(info.name)}
-                  </h2>
+                  <StockContextMenu symbol={info.symbol} name={info.name}>
+                    <h2 className={cn(
+                      'font-bold cursor-context-menu',
+                      compact ? 'text-lg' : 'text-xl sm:text-2xl'
+                    )}>
+                      {normalizeStockName(info.name)}
+                    </h2>
+                  </StockContextMenu>
                   <Badge variant="outline" className={compact ? 'text-xs' : ''}>{info.market}</Badge>
                   {info.sector && (
                     <Badge variant="secondary" className={compact ? 'text-xs' : ''}>{info.sector}</Badge>

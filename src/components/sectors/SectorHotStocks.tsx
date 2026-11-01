@@ -3,6 +3,7 @@
 import { memo } from 'react';
 import Link from 'next/link';
 import { ArrowUp, ArrowDown, Flame } from 'lucide-react';
+import { StockContextMenu } from '@/components/stock/StockContextMenu';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -150,9 +151,11 @@ const HotStockRow = memo(function HotStockRow({
     >
       <div className="flex items-center gap-2 min-w-0">
         <span className="text-xs text-muted-foreground w-4">{rank}</span>
-        <span className="font-medium text-sm truncate group-hover:underline">
-          {name}
-        </span>
+        <StockContextMenu symbol={symbol} name={name}>
+          <span className="font-medium text-sm truncate group-hover:underline cursor-context-menu">
+            {name}
+          </span>
+        </StockContextMenu>
       </div>
       <div className="flex items-center gap-3">
         {price && (
