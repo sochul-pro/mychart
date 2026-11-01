@@ -18,6 +18,7 @@ import type { OHLCV, TimeFrame } from '@/types';
 import type { IndicatorConfig, MAConfig, BollingerConfig, RSIConfig, MACDConfig, StochasticConfig } from './types';
 import { isOverlayIndicator } from './types';
 import { sma, ema, bollingerBands, rsi, macd, stochastic } from '@/lib/indicators';
+import type { ConditionResult } from '@/lib/signals/types';
 
 /** 마커 모양 타입 */
 export type MarkerShape = 'arrowUp' | 'arrowDown' | 'circle' | 'square';
@@ -31,6 +32,7 @@ export interface SignalMarker {
   strategyName: string;
   reason?: string; // 신호 발생 조건
   price?: number; // 신호 발생 시점 가격
+  conditionResult?: ConditionResult; // 조건 평가 상세 결과
 }
 
 export interface StockChartWithIndicatorsProps {
@@ -50,6 +52,8 @@ export interface StockChartWithIndicatorsProps {
   timeFrame?: TimeFrame;
   /** 타임프레임 변경 시 콜백 */
   onTimeFrameChange?: (timeFrame: TimeFrame) => void;
+  /** 신호 마커 클릭 시 콜백 */
+  onSignalClick?: (signal: SignalMarker) => void;
   /** 상승 캔들 색상 */
   upColor?: string;
   /** 하락 캔들 색상 */
@@ -120,6 +124,7 @@ export function StockChartWithIndicators({
   showVolume = true,
   timeFrame = 'D',
   onTimeFrameChange,
+  onSignalClick,
   upColor = '#26a69a',
   downColor = '#ef5350',
   className = '',
@@ -152,6 +157,7 @@ export function StockChartWithIndicators({
   // 호버된 신호 정보 상태
   const [hoveredSignals, setHoveredSignals] = useState<SignalMarker[]>([]);
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
+  const isTooltipHoveredRef = useRef(false); // 툴팁 위에 마우스가 있는지 추적
 
   // signalMarkers를 ref로 저장 (크로스헤어 핸들러에서 최신값 참조용)
   const signalMarkersRef = useRef<SignalMarker[]>(signalMarkers);
@@ -358,9 +364,14 @@ export function StockChartWithIndicators({
       // 다른 차트에서 sync 호출로 발생한 이벤트는 무시 (무한 루프 방지)
       if (isCrosshairSyncingRef.current) return;
 
-      // 서브차트 크로스헤어 동기화
+      // 서브차트 크로스헤어 동기화 (툴팁 호버 여부와 무관하게 항상 수행)
       const syncTime = param.time as number | undefined;
       syncCrosshair(syncTime);
+
+      // 툴팁 위에 마우스가 있으면 툴팁 상태 유지
+      if (isTooltipHoveredRef.current) {
+        return;
+      }
 
       if (!param.time || !param.point || param.point.x < 0 || param.point.y < 0) {
         setHoveredSignals([]);
@@ -977,19 +988,43 @@ export function StockChartWithIndicators({
         {/* 신호 정보 툴팁 */}
         {hoveredSignals.length > 0 && tooltipPosition && (
           <div
-            className="absolute z-50 pointer-events-none"
+            className="absolute z-50"
             style={{
               left: Math.min(tooltipPosition.x + 12, (mainContainerRef.current?.clientWidth || 300) - 280),
               top: Math.max(tooltipPosition.y - 10, 10),
+            }}
+            onMouseEnter={() => {
+              isTooltipHoveredRef.current = true;
+            }}
+            onMouseLeave={() => {
+              isTooltipHoveredRef.current = false;
+              // 마우스가 툴팁을 벗어나면 툴팁 숨김
+              setHoveredSignals([]);
+              setTooltipPosition(null);
             }}
           >
             <div className="bg-gray-900/95 text-white text-xs rounded-lg shadow-lg p-3 min-w-[240px] max-w-[320px]">
               <div className="font-semibold mb-2 pb-2 border-b border-gray-700">
                 📊 매매신호 ({hoveredSignals.length}건)
+                {onSignalClick && hoveredSignals.some(s => s.conditionResult) && (
+                  <span className="text-[10px] text-gray-400 font-normal ml-2">클릭하여 상세보기</span>
+                )}
               </div>
               <div className="space-y-3">
                 {hoveredSignals.map((signal, idx) => (
-                  <div key={idx} className="flex flex-col gap-1.5">
+                  <div
+                    key={idx}
+                    className={`flex flex-col gap-1.5 ${
+                      onSignalClick && signal.conditionResult
+                        ? 'cursor-pointer hover:bg-gray-800/50 -mx-2 px-2 py-1 rounded transition-colors'
+                        : ''
+                    }`}
+                    onClick={() => {
+                      if (onSignalClick && signal.conditionResult) {
+                        onSignalClick(signal);
+                      }
+                    }}
+                  >
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <span
