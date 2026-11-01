@@ -645,7 +645,7 @@ export const PRESET_STRATEGIES: Record<PresetStrategyId, TradingStrategy> = {
   minervini_korea: {
     id: 'minervini_korea',
     name: '미너비니_한국형',
-    description: '한국 시장 맞춤: 20/60/120일선 + 거래량 1.5배 + RSI 필터',
+    description: '한국 시장 맞춤: 20/60/120일선 + 거래량 1.5배 + RSI 필터. 매도: 5일선 이탈 또는 거래량 동반 장대음봉',
     buyCondition: {
       type: 'and',
       conditions: [
@@ -752,39 +752,45 @@ export const PRESET_STRATEGIES: Record<PresetStrategyId, TradingStrategy> = {
     sellCondition: {
       type: 'or',
       conditions: [
-        // Price < SMA(20) - 단기 추세 이탈
+        // 조건 1: Price < SMA(5) - 5일선 하향 이탈
         {
           type: 'single',
           indicator: 'price',
           operator: 'lt',
           value: 'sma',
-          valueParams: { period: 20 },
+          valueParams: { period: 5 },
         },
-        // SMA(20) cross_below SMA(60) - 단중기 데드크로스
+        // 조건 2: 거래량 동반 장대음봉
+        // 거래량 단독 조건은 매수 조건 8과 동일해 매수 신호를 막으므로 장대음봉과 AND로 묶는다
         {
-          type: 'crossover',
-          indicator1: 'sma',
-          indicator2: 'sma',
-          direction: 'down',
-          params1: { period: 20 },
-          params2: { period: 60 },
-        },
-        // SMA(60) cross_below SMA(120) - 중장기 데드크로스
-        {
-          type: 'crossover',
-          indicator1: 'sma',
-          indicator2: 'sma',
-          direction: 'down',
-          params1: { period: 60 },
-          params2: { period: 120 },
-        },
-        // RSI > 75 - 과매수 청산
-        {
-          type: 'single',
-          indicator: 'rsi',
-          operator: 'gt',
-          value: 75,
-          params: { period: 14 },
+          type: 'and',
+          conditions: [
+            // Volume > Volume_MA(20) * 1.5 - 거래량 평균의 1.5배 이상 (매도 압력)
+            {
+              type: 'single',
+              indicator: 'volume',
+              operator: 'gt',
+              value: {
+                type: 'arithmetic',
+                left: 'volume_ma',
+                operator: 'mul',
+                right: 1.5,
+                leftParams: { period: 20 },
+              },
+            },
+            // 장대음봉 -2% - 종가 <= 시가 * 0.98 (시가 대비 2% 이상 하락한 음봉)
+            {
+              type: 'single',
+              indicator: 'price',
+              operator: 'lte',
+              value: {
+                type: 'arithmetic',
+                left: 'open',
+                operator: 'mul',
+                right: 0.98,
+              },
+            },
+          ],
         },
       ],
     },

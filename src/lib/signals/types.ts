@@ -17,6 +17,7 @@ export interface ArithmeticExpression {
 /** 지표 타입 */
 export type SignalIndicator =
   | 'price'
+  | 'open'
   | 'volume'
   | 'volume_ma'
   | 'high_n'

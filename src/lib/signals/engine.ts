@@ -388,6 +388,7 @@ function formatIndicator(indicator: SignalIndicator, params?: Record<string, num
   const lag = params?.lag;
   const names: Record<SignalIndicator, string> = {
     price: '종가',
+    open: '시가',
     volume: '거래량',
     volume_ma: `거래량MA(${period || 20})`,
     high_n: period === 252 ? '52주 최고가' : `${period || 20}일 최고가`,

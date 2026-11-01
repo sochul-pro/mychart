@@ -295,7 +295,7 @@ describe('Preset Strategies', () => {
 
   it('should return all strategies with getPresetStrategies', () => {
     const strategies = getPresetStrategies();
-    expect(strategies.length).toBe(7);
+    expect(strategies.length).toBe(9);
     expect(strategies.every((s) => s.id && s.name)).toBe(true);
   });
 
@@ -313,5 +313,77 @@ describe('Preset Strategies', () => {
     expect(result).toHaveProperty('signals');
     expect(result).toHaveProperty('buyCount');
     expect(result).toHaveProperty('sellCount');
+  });
+});
+
+describe('minervini_korea 전략', () => {
+  const strategy = PRESET_STRATEGIES.minervini_korea;
+
+  // 상승 추세 + 파동 데이터. 5일선이 10일선을 상향돌파하는 날에만 거래량이 3배로 증가한다.
+  function generateUptrendData(count: number = 200): OHLCV[] {
+    const closes = Array.from(
+      { length: count },
+      (_, i) => 100 + i * 0.4 + Math.sin(i * 0.4) * 8
+    );
+    const sma = (i: number, period: number) =>
+      closes.slice(i - period + 1, i + 1).reduce((a, b) => a + b, 0) / period;
+
+    return closes.map((close, i) => {
+      const isGoldenCross =
+        i >= 10 && sma(i - 1, 5) <= sma(i - 1, 10) && sma(i, 5) > sma(i, 10);
+      return {
+        time: i * 86400000,
+        open: close * 0.995,
+        high: close * 1.005,
+        low: close * 0.99,
+        close,
+        volume: isGoldenCross ? 3000 : 1000,
+      };
+    });
+  }
+
+  // 종가 100의 횡보 데이터 뒤에 평가 대상 봉을 붙인다.
+  function evaluateSellOnLastBar(bar: Pick<OHLCV, 'open' | 'close' | 'volume'>): boolean {
+    const data: OHLCV[] = Array.from({ length: 30 }, (_, i) => ({
+      time: i * 86400000,
+      open: 100,
+      high: 101,
+      low: 99,
+      close: 100,
+      volume: 1000,
+    }));
+    data.push({
+      time: 30 * 86400000,
+      high: Math.max(bar.open, bar.close),
+      low: Math.min(bar.open, bar.close),
+      ...bar,
+    });
+    return evaluateCondition(
+      strategy.sellCondition,
+      data,
+      data.length - 1,
+      createIndicatorCache()
+    );
+  }
+
+  it('매수 신호가 실제로 발생해야 한다', () => {
+    const result = generateSignals(strategy, generateUptrendData());
+    expect(result.buyCount).toBeGreaterThan(0);
+  });
+
+  it('거래량이 급증해도 양봉이면 매도하지 않는다', () => {
+    expect(evaluateSellOnLastBar({ open: 105, close: 110, volume: 3000 })).toBe(false);
+  });
+
+  it('장대음봉이어도 거래량이 없으면 매도하지 않는다', () => {
+    expect(evaluateSellOnLastBar({ open: 115, close: 110, volume: 1000 })).toBe(false);
+  });
+
+  it('거래량 급증과 장대음봉이 함께 나오면 매도한다', () => {
+    expect(evaluateSellOnLastBar({ open: 115, close: 110, volume: 3000 })).toBe(true);
+  });
+
+  it('5일선을 이탈하면 거래량과 무관하게 매도한다', () => {
+    expect(evaluateSellOnLastBar({ open: 95, close: 95, volume: 1000 })).toBe(true);
   });
 });

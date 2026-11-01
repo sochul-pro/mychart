@@ -42,6 +42,9 @@ export function getIndicatorValues(
     case 'price':
       return data.map((d) => d.close);
 
+    case 'open':
+      return data.map((d) => d.open);
+
     case 'volume':
       return data.map((d) => d.volume);
 
